@@ -27,8 +27,7 @@ bool DataManager::loadTaskFile(const std::string &task_file)
     if (!_task_manager->loadTask(task_file)) {
         return false;
     }
-    _task_manager->computeReflineDistance();
-    _task_manager->updateTaskItem();
+    _task_manager->updateTask();
     _task_manager->setEditMode(TaskManager::MODE_NORMAL);
     emit emitReflineUpdate();
     return !_task_manager->getRefline().empty();
@@ -56,8 +55,7 @@ bool DataManager::extractBagData(const std::string &bag_file)
         pose_3d.qz = odometry->pose.orientation.z;
         this->appendRefPoint(pose_3d.x, pose_3d.y, pose_3d.getYaw());
     }
-    _task_manager->computeReflineDistance();
-    _task_manager->updateTaskItem();
+    _task_manager->updateTask();
     _task_manager->setEditMode(TaskManager::MODE_NORMAL);
     emit emitReflineUpdate();
     return !_task_manager->getRefline().empty();
@@ -72,8 +70,7 @@ void DataManager::startRecordRefline()
 
 void DataManager::stopRecordRefline()
 {
-    _task_manager->computeReflineDistance();
-    _task_manager->updateTaskItem();
+    _task_manager->updateTask();
     _task_manager->setEditMode(TaskManager::MODE_NORMAL);
     emit emitStopRosSpin();
     emit emitReflineUpdate();
@@ -117,19 +114,18 @@ void DataManager::appendRefPoint(const float x, const float y)
         tergeo::common::math::Pose2d pose(x, y, theta);
         _task_manager->appendRefpoint(pose);
     }
-    _task_manager->updateTaskItem();
+    _task_manager->updateTask();
 }
 
 void DataManager::popRefPoint()
 {
     _task_manager->popRefPoint();
-    _task_manager->updateTaskItem();
+    _task_manager->updateTask();
 }
 
 void DataManager::finishDrawRefline()
 {
-    _task_manager->computeReflineDistance();
-    _task_manager->updateTaskItem();
+    _task_manager->updateTask();
     _task_manager->setEditMode(TaskManager::MODE_NORMAL);
     emit emitReflineUpdate();
     emit emitDrawReflineFlag(false);

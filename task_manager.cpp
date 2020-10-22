@@ -120,21 +120,14 @@ void TaskManager::popRefPoint()
     _task.reference_line.points.pop_back();
 }
 
-void TaskManager::computeReflineDistance()
-{
-    if (_edit_mode == MODE_NORMAL) {
-        return;
-    }
-    _task.reference_line.computeDistance();
-}
-
 QGraphicsItemGroup *TaskManager::getTaskItemGroup()
 {
     return _task_item;
 }
 
-void TaskManager::updateTaskItem()
+void TaskManager::updateTask()
 {
+    _task.reference_line.computeDistance();
     this->updatePathItem();
     this->updatePointsGroup();
 }

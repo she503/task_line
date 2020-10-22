@@ -16,6 +16,9 @@ public:
     explicit TaskEditFrame(DataManager* data_manager, QWidget *parent = 0);
     ~TaskEditFrame();
 
+private slots:
+    void updateReflineInfoSlot();
+
 private:
     DataManager* _data_manager;
     Ui::TaskEditFrame *ui;
