@@ -1,0 +1,8 @@
+*.vscode
+build/
+*.pb.cc
+*.pb.h
+*.user.*
+*.user
+install/
+*.autosave
