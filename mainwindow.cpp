@@ -14,26 +14,37 @@ MainWindow::MainWindow(QWidget *parent) :
 
     _data_manager = new DataManager(this);
     _editor_viewer = new EditorViewer(_data_manager, this);
-    _control_frame = new ControlFrame(_data_manager, this);
-    _task_edit_frame = new TaskEditFrame(_data_manager, this);
+    _task_control_frame = new TaskControlFrame(_data_manager, this);
+    _refline_edit_frame = new RefLineEditFrame(_data_manager, this);
 
     _ros_manager = new RosManager();
     _ros_thread = new QThread();
     _ros_manager->moveToThread(_ros_thread);
     connect(_ros_thread, &QThread::finished, _ros_manager, &QObject::deleteLater);
     connect(_ros_thread, &QThread::finished, _ros_thread, &QObject::deleteLater);
-    connect(_data_manager, SIGNAL(emitStartRosSpin()), _ros_manager, SLOT(startRosSpin()));
+
+    connect(_task_control_frame, SIGNAL(emitStartRosSpin()),
+            _ros_manager, SLOT(startRosSpin()));
+    connect(_task_control_frame, SIGNAL(emitStopRosSpin()),
+            _ros_manager, SLOT(stopRosSpin()));
+    connect(_task_control_frame, SIGNAL(emitStartDrawRefLine()),
+            _editor_viewer, SLOT(startDrawRefLineSlot()));
+    connect(_task_control_frame, SIGNAL(emitStartRosSpin()),
+            _editor_viewer, SLOT(startRecordSlot()));
+    connect(_task_control_frame, SIGNAL(emitStopRosSpin()),
+            _editor_viewer, SLOT(stopRecordSlot()));
+
     connect(_ros_manager, SIGNAL(emitLocalization(float,float,float)),
-            _data_manager, SLOT(appendRefPoint(float,float,float)));
+            _data_manager->getTaskManager(), SLOT(appendRefPoint(float,float,float)));
     connect(_ros_manager, SIGNAL(emitLocalization(float,float,float)),
             _editor_viewer, SLOT(updateLocalization(float,float,float)));
-    connect(_data_manager, SIGNAL(emitStopRosSpin()), this, SLOT(stopRosSpinSlot()));
+
     _ros_thread->start();
 
     this->setCentralWidget(_editor_viewer);
     QTabWidget* tab_widget = new QTabWidget(this);
-    tab_widget->addTab(_control_frame, tr("Control Frame"));
-    tab_widget->addTab(_task_edit_frame, tr("Task Edit"));
+    tab_widget->addTab(_task_control_frame, tr("Task Control Frame"));
+    tab_widget->addTab(_refline_edit_frame, tr("Refline Edit Frame"));
     QDockWidget* control_dock = new QDockWidget(this);
     control_dock->setWidget(tab_widget);
     control_dock->setFeatures(QDockWidget::NoDockWidgetFeatures);
@@ -43,14 +54,9 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
     delete ui;
-    this->stopRosSpinSlot();
+    _ros_manager->stopRosSpin();
     if(_ros_thread) {
         _ros_thread->quit();
     }
     _ros_thread->wait();
-}
-
-void MainWindow::stopRosSpinSlot()
-{
-    _ros_manager->stopRosSpin();
 }

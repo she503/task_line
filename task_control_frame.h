@@ -1,21 +1,26 @@
-#ifndef TASK_REFLINE_EDITOR_CONTROL_FRAME_H
-#define TASK_REFLINE_EDITOR_CONTROL_FRAME_H
+#ifndef TASK_REFLINE_EDITOR_TASK_CONTROL_FRAME_H
+#define TASK_REFLINE_EDITOR_TASK_CONTROL_FRAME_H
 
 #include <QFrame>
 
 #include "data_manager.h"
 
 namespace Ui {
-class ControlFrame;
+class TaskControlFrame;
 }
 
-class ControlFrame : public QFrame
+class TaskControlFrame : public QFrame
 {
     Q_OBJECT
 
 public:
-    explicit ControlFrame(DataManager* data_manager, QWidget *parent = 0);
-    ~ControlFrame();
+    explicit TaskControlFrame(DataManager* data_manager, QWidget *parent = 0);
+    ~TaskControlFrame();
+
+signals:
+    void emitStartDrawRefLine();
+    void emitStartRosSpin();
+    void emitStopRosSpin();
 
 private slots:
     void loadMapSlot();
@@ -31,12 +36,12 @@ private slots:
     void beginRecordSlot();
     void stopRecordSlot();
 
-    void updateReflineInfoSlot();
+    void updateTaskInfoSlot();
 
 private:
     DataManager* _data_manager;
 
-    Ui::ControlFrame *ui;
+    Ui::TaskControlFrame *ui;
 };
 
 #endif // CONTROL_FRAME_H

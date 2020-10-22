@@ -1,37 +1,36 @@
 #include "task_manager.h"
 
 #include <common/file.hpp>
-
+#include <rosbag/bag.h>
+#include <rosbag/view.h>
+#include <ros_msgs/Odometry.h>
 #include <QPen>
 #include <QBrush>
 #include <QColor>
 #include <QMessageBox>
 #include <QPainterPath>
-
-using RefPoint = tergeo::task::ReferencePoint;
-using RefPointType = tergeo::task::ReferencePoint::Type;
+#include <QGraphicsPathItem>
 
 TaskManager::TaskManager(QObject *parent) : QObject(parent)
 {
-    _task_item = new QGraphicsItemGroup();
-    _task_item->setZValue(10);
+    _task_group = new QGraphicsItemGroup();
+    _task_group->setZValue(10);
 
-    _points_group = new QGraphicsItemGroup(_task_item);
+    _points_group = new QGraphicsItemGroup(_task_group);
     _points_group->setZValue(12);
-    _path_item = new QGraphicsPathItem(_task_item);
-    _path_item->setZValue(11);
+    _path_group = new QGraphicsItemGroup(_task_group);
+    _path_group->setZValue(11);
 }
 
 bool TaskManager::loadTask(const std::string &file_path)
 {
-    if (_edit_mode != MODE_LOAD) {
-        return false;
-    }
+    this->clearRefLine();
     tergeo::task::proto::Task proto_task;
     if (!tergeo::common::file::GetProtoFromFile(file_path, proto_task)) {
         return false;
     }
     _task.fromProto(proto_task);
+    this->updateTask();
     return true;
 }
 
@@ -51,163 +50,195 @@ bool TaskManager::saveTask(const std::string &save_dir,
     return true;
 }
 
+bool TaskManager::extractBagData(const std::string &bag_file)
+{
+    this->clearRefLine();
+    _edit_mode = MODE_EXTRACT_BAG;
+    rosbag::Bag ros_bag; ros_bag.open(bag_file, rosbag::bagmode::Read);
+    rosbag::View odometry_view(ros_bag, rosbag::TopicQuery("/tergeo/localization/pose"));
+    BOOST_FOREACH(rosbag::MessageInstance const m, odometry_view) {
+        ros_msgs::Odometry::ConstPtr odometry = m.instantiate<ros_msgs::Odometry>();
+        if (odometry == nullptr) {
+            continue;
+        }
+        this->appendRefPoint(odometry->pose.position.x, odometry->pose.position.y);
+    }
+    this->updateTask();
+    return !_task.reference_line.empty();
+}
+
+void TaskManager::startRecordRefLine()
+{
+    this->clearRefLine();
+    _edit_mode = MODE_RECORD;
+}
+
+void TaskManager::stopRecordRefLine()
+{
+    this->updateTask();
+}
+
 const tergeo::task::Task &TaskManager::getTask() const
 {
     return _task;
 }
 
-const tergeo::task::ReferenceLine &TaskManager::getRefline() const
+QGraphicsItemGroup *TaskManager::getTaskItemGroup()
 {
-    return _task.reference_line;
+    return _task_group;
 }
 
-void TaskManager::clearRefline()
+void TaskManager::fromRefLine(const RefLine &ref_line)
+{
+    _task.reference_line.clear();
+    if (ref_line.size() < 2) {
+        return;
+    }
+    _task.reference_line.points.resize(ref_line.size());
+    for (int i = 0; i < ref_line.size(); ++i) {
+        _task.reference_line.points[i].type = ref_line.at(i).type;
+        _task.reference_line.points[i].pose.x = ref_line.at(i).pos.x();
+        _task.reference_line.points[i].pose.y = ref_line.at(i).pos.y();
+        if (i == ref_line.size() - 1) {
+            _task.reference_line.points[i].pose.theta =
+                    std::atan2(ref_line.at(i).pos.y() - ref_line.at(i - 1).pos.y(),
+                               ref_line.at(i).pos.x() - ref_line.at(i - 1).pos.x());
+        } else {
+            _task.reference_line.points[i].pose.theta =
+                    std::atan2(ref_line.at(i + 1).pos.y() - ref_line.at(i).pos.y(),
+                               ref_line.at(i + 1).pos.x() - ref_line.at(i).pos.x());
+        }
+    }
+    this->updateTask();
+}
+
+void TaskManager::toRefLine(RefLine &ref_line)
+{
+    ref_line.clear();
+    if (_task.reference_line.size() < 2) {
+        return;
+    }
+    ref_line.reserve(_task.reference_line.size());
+    for (int i = 0; i < _task.reference_line.size(); ++i) {
+        RefPoint ref_point;
+        ref_point.type = _task.reference_line.at(i).type;
+        ref_point.pos.setX(_task.reference_line.at(i).pose.x);
+        ref_point.pos.setY(_task.reference_line.at(i).pose.y);
+        ref_point.is_edge_wise = (
+                    ref_point.type == tergeo::task::ReferencePoint::Type::TYPE_EDGE_WISE_LINE ||
+                    ref_point.type == tergeo::task::ReferencePoint::Type::TYPE_EDGE_WISE_CURVE);
+        ref_line.append(ref_point);
+    }
+}
+
+void TaskManager::appendRefPoint(const float x, const float y, const float theta)
 {
     if (_edit_mode == MODE_NORMAL) {
         return;
     }
+
+    tergeo::task::ReferencePoint ref_point;
+    ref_point.type = tergeo::task::ReferencePoint::Type::TYPE_GO_STRAIGHT;
+    ref_point.pose.x = x; ref_point.pose.y = y;
+    if (!_task.reference_line.empty() &&
+            _task.reference_line.last().pose.distanceTo(ref_point.pose) < ResampleDist) {
+        return;
+    }
+    if (!_task.reference_line.empty()) {
+        ref_point.pose.theta = std::atan2(y - _task.reference_line.last().pose.y,
+                                          x - _task.reference_line.last().pose.x);
+        if (_task.reference_line.size() == 1) {
+            _task.reference_line.points[0].pose.theta = ref_point.pose.theta;
+        }
+    }
+    _task.reference_line.push_back(ref_point);
+
+    if (_edit_mode == MODE_RECORD || _edit_mode == MODE_DRAW) {
+        QGraphicsEllipseItem* point_item = new QGraphicsEllipseItem(_points_group);
+        QPen pen; pen.setWidthF(0.02); pen.setColor(QColor(0, 255, 0));
+        point_item->setPen(pen);
+        point_item->setBrush(QColor(0, 128, 0));
+        QPointF point(x, y);
+        QRectF rect(point - QPointF(0.04, 0.04), point + QPointF(0.04, 0.04));
+        point_item->setRect(rect);
+    }
+    if (_edit_mode == MODE_DRAW) {
+        this->updatePathItemGroup();
+    }
+}
+
+void TaskManager::popRefPoint()
+{
+    _task.reference_line.points.pop_back();
+}
+
+void TaskManager::finishDrawRefline()
+{
+    this->updateTask();
+}
+
+void TaskManager::clearRefLine()
+{
     _task.reference_line.clear();
-    _path_item->setVisible(false);
+    QList<QGraphicsItem* > item_list = _points_group->childItems();
+    for (QGraphicsItem* item : item_list) {
+        delete item;
+    }
+    QList<QGraphicsItem* > item_list_2 = _path_group->childItems();
+    for (QGraphicsItem* item : item_list_2) {
+        delete item;
+    }
+}
+
+void TaskManager::updateTask()
+{
+    _edit_mode = MODE_NORMAL;
+    _task.reference_line.computeDistance();
+    this->updateTaskItemGroup();
+    emit emitTaskUpdate();
+}
+
+void TaskManager::updateTaskItemGroup()
+{
+    this->updatePathItemGroup();
     QList<QGraphicsItem* > item_list = _points_group->childItems();
     for (QGraphicsItem* item : item_list) {
         delete item;
     }
 }
 
-void TaskManager::setEditMode(TaskManager::EditMode edit_mode)
+void TaskManager::updatePathItemGroup()
 {
-    _edit_mode = edit_mode;
-}
-
-void TaskManager::appendRefpoint(const tergeo::common::math::Pose2d &ref_pose)
-{
-    if (_edit_mode != MODE_RECORD && _edit_mode != MODE_DRAW) {
+    QList<QGraphicsItem* > item_list = _path_group->childItems();
+    for (QGraphicsItem* item : item_list) {
+        delete item;
+    }
+    if (_task.reference_line.empty()) {
         return;
     }
-
-    QGraphicsEllipseItem* point_item = new QGraphicsEllipseItem(_points_group);
-    QPen pen; pen.setWidthF(0.02); pen.setColor(QColor(0, 255, 0));
-    point_item->setPen(pen);
-    point_item->setBrush(QColor(0, 128, 0));
-    QPointF point(ref_pose.x, ref_pose.y);
-    QRectF rect(point - QPointF(0.04, 0.04), point + QPointF(0.04, 0.04));
-    point_item->setRect(rect);
-    point_item->setVisible(true);
-
-    RefPoint ref_point;
-    ref_point.pose = ref_pose;
-    ref_point.type = RefPointType::TYPE_GO_STRAIGHT;
-    _task.reference_line.push_back(ref_point);
-}
-
-void TaskManager::updateRefPoint(const int index,
-                                 const tergeo::common::math::Pose2d &ref_pose)
-{
-    if (_edit_mode == MODE_NORMAL) {
-        return;
-    }
-    if (index < 0 || index >= _task.reference_line.size()) {
-        return;
-    }
-    _task.reference_line.points[index].pose = ref_pose;
-}
-
-void TaskManager::popRefPoint()
-{
-    if (_edit_mode != MODE_DRAW) {
-        return;
-    }
-    _task.reference_line.points.pop_back();
-}
-
-QGraphicsItemGroup *TaskManager::getTaskItemGroup()
-{
-    return _task_item;
-}
-
-void TaskManager::updateTask()
-{
-    _task.reference_line.computeDistance();
-    this->updatePathItem();
-    this->updatePointsGroup();
-}
-
-void TaskManager::updatePathItem()
-{
-    int pt_num = _task.reference_line.size();
-    if (pt_num < 2) return;
-    QPainterPath path;
-    path.moveTo(QPointF(_task.reference_line.first().pose.x,
-                        _task.reference_line.first().pose.y));
-    for (int i = 1; i < _task.reference_line.size(); ++i) {
-        path.lineTo(QPointF(_task.reference_line.at(i).pose.x,
-                            _task.reference_line.at(i).pose.y));
-    }
-    QPen pen(QColor(0, 0, 255));
-    pen.setWidthF(0.03);
-    _path_item->setPen(pen);
-    _path_item->setPath(path);
-    _path_item->setVisible(true);
-    _path_item->update();
-}
-
-void TaskManager::updatePointsGroup()
-{
-    int pt_num = _task.reference_line.size();
-    while (pt_num > _points_group->childItems().size()) {
-        QGraphicsEllipseItem* point_item = new QGraphicsEllipseItem(_points_group);
-    }
-
-    QPen pen; pen.setWidthF(0.02);
-    QList<QGraphicsItem* > item_list = _points_group->childItems();
-    for (int i = 0; i < item_list.size(); ++i) {
-        if (i >= pt_num) {
-            item_list[i]->setVisible(false);
-            continue;
+    QPen pen; pen.setWidthF(0.04);
+    tergeo::task::ReferencePoint::Type cur_type = _task.reference_line.first().type;
+    int cur_index = 0, pt_num = _task.reference_line.size();
+    while (cur_index < pt_num) {
+        QPainterPath path;
+        path.moveTo(QPointF(_task.reference_line.at(cur_index).pose.x,
+                            _task.reference_line.at(cur_index).pose.y));
+        QGraphicsPathItem* path_item = new QGraphicsPathItem(_path_group);
+        pen.setColor(PointTypeColorMap[cur_type]);
+        path_item->setPen(pen);
+        while (_task.reference_line.at(cur_index+1).type == cur_type) {
+            path.lineTo(QPointF(_task.reference_line.at(cur_index+1).pose.x,
+                                _task.reference_line.at(cur_index+1).pose.y));
+            if (++cur_index >= (pt_num-1)) {
+                break;
+            }
         }
-        QGraphicsEllipseItem* point_item =
-                dynamic_cast<QGraphicsEllipseItem*>(item_list[i]);
-        RefPointType point_type = _task.reference_line.at(i).type;
-        if (point_type == RefPointType::TYPE_GO_STRAIGHT ||
-                point_type == RefPointType::TYPE_GO_STRAIGHT_CURVE) {
-            pen.setColor(QColor(0, 255, 0));
-            point_item->setPen(pen);
-            point_item->setBrush(QColor(0, 128, 0));
-        } else if (point_type == RefPointType::TYPE_TURN_LEFT ||
-                   point_type == RefPointType::TYPE_INNER_TURN_LEFT ||
-                   point_type == RefPointType::TYPE_OUTER_TURN_LEFT) {
-            pen.setColor(QColor(255, 0, 0));
-            point_item->setPen(pen);
-            point_item->setBrush(QColor(128, 0, 0));
-        } else if (point_type == RefPointType::TYPE_TURN_RIGHT ||
-                   point_type == RefPointType::TYPE_INNER_TURN_RIGHT ||
-                   point_type == RefPointType::TYPE_OUTER_TURN_RIGHT) {
-            pen.setColor(QColor(255, 255, 0));
-            point_item->setPen(pen);
-            point_item->setBrush(QColor(128, 128, 0));
-        } else if (point_type == RefPointType::TYPE_U_TURN_LEFT ||
-                   point_type == RefPointType::TYPE_INNER_U_TURN_LEFT ||
-                   point_type == RefPointType::TYPE_OUTER_U_TURN_LEFT) {
-            pen.setColor(QColor(0, 0, 255));
-            point_item->setPen(pen);
-            point_item->setBrush(QColor(0, 0, 128));
-        } else if (point_type == RefPointType::TYPE_U_TURN_RIGHT ||
-                   point_type == RefPointType::TYPE_INNER_U_TURN_RIGHT ||
-                   point_type == RefPointType::TYPE_OUTER_U_TURN_RIGHT) {
-            pen.setColor(QColor(0, 255, 255));
-            point_item->setPen(pen);
-            point_item->setBrush(QColor(0, 0, 128));
-        } else if (point_type == RefPointType::TYPE_EDGE_WISE_LINE ||
-                   point_type == RefPointType::TYPE_EDGE_WISE_CURVE) {
-            pen.setColor(QColor(255, 0, 255));
-            point_item->setPen(pen);
-            point_item->setBrush(QColor(128, 0, 128));
+        path_item->setPath(path);
+        if (cur_index >= (pt_num-1)) {
+            break;
         }
-        QPointF ref_pt(_task.reference_line.at(i).pose.x,
-                       _task.reference_line.at(i).pose.y);
-        QRectF rect(ref_pt - QPointF(0.04, 0.04), ref_pt + QPointF(0.04, 0.04));
-        point_item->setRect(rect);
-        point_item->setVisible(true);
+        cur_type = _task.reference_line.at(cur_index+1).type;
     }
-    _points_group->update();
+    _path_group->update();
 }
+

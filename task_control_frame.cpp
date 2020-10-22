@@ -1,12 +1,12 @@
-#include "control_frame.h"
-#include "ui_control_frame.h"
+#include "task_control_frame.h"
+#include "ui_task_control_frame.h"
 
 #include <QDebug>
 #include <QFileDialog>
 #include <QMessageBox>
 
-ControlFrame::ControlFrame(DataManager *data_manager, QWidget *parent) :
-       _data_manager(data_manager), QFrame(parent), ui(new Ui::ControlFrame)
+TaskControlFrame::TaskControlFrame(DataManager *data_manager, QWidget *parent) :
+       _data_manager(data_manager), QFrame(parent), ui(new Ui::TaskControlFrame)
 {
     ui->setupUi(this);
 
@@ -36,17 +36,16 @@ ControlFrame::ControlFrame(DataManager *data_manager, QWidget *parent) :
     connect(ui->pushButton_stop_record, SIGNAL(clicked(bool)),
             this, SLOT(stopRecordSlot()));
 
-    connect(_data_manager, SIGNAL(emitReflineUpdate()),
-            this, SLOT(updateReflineInfoSlot()));
-
+    connect(_data_manager->getTaskManager(), SIGNAL(emitTaskUpdate()),
+            this, SLOT(updateTaskInfoSlot()));
 }
 
-ControlFrame::~ControlFrame()
+TaskControlFrame::~TaskControlFrame()
 {
     delete ui;
 }
 
-void ControlFrame::loadMapSlot()
+void TaskControlFrame::loadMapSlot()
 {
     QString map_dir = QFileDialog::getExistingDirectory(this);
     if (map_dir.isEmpty()) {
@@ -65,7 +64,7 @@ void ControlFrame::loadMapSlot()
     ui->comboBox_task_resource->setCurrentIndex(2);
 }
 
-void ControlFrame::generateRoadEdgeSlot()
+void TaskControlFrame::generateRoadEdgeSlot()
 {
     if (ui->lineEdit_edge_dist->text().isEmpty()) {
         QMessageBox::warning(this, tr("No edge dist"), tr("Please set a edge dist!"));
@@ -75,8 +74,9 @@ void ControlFrame::generateRoadEdgeSlot()
     _data_manager->getMapManager()->generateEdge(edge_dist);
 }
 
-void ControlFrame::taskResourceChangedSlot(const int index)
+void TaskControlFrame::taskResourceChangedSlot(const int index)
 {
+    _data_manager->getTaskManager()->clearRefLine();
     ui->pushButton_save_task->setVisible(false);
     ui->lineEdit_task_name->setText("");
     ui->lineEdit_distance->setText("");
@@ -98,13 +98,12 @@ void ControlFrame::taskResourceChangedSlot(const int index)
         ui->groupBox_record->setVisible(false);
         ui->groupBox_extract_bag->setVisible(false);
         ui->pushButton_load_task->setVisible(false);
-        _data_manager->setDrawReflineFlag(true);
+        emit emitStartDrawRefLine();
         return;
     }
-    _data_manager->setDrawReflineFlag(false);
 }
 
-void ControlFrame::loadTaskSlot()
+void TaskControlFrame::loadTaskSlot()
 {
     QString file_path = QFileDialog::getOpenFileName(this, tr("Open Task"),
             QString::fromStdString(_data_manager->getMapManager()->getMapDir()), "*.task");
@@ -112,7 +111,7 @@ void ControlFrame::loadTaskSlot()
         QMessageBox::warning(this, tr("Empty task path"), tr("Please select a task file!"));
         return;
     }
-    if (_data_manager->loadTaskFile(file_path.toStdString())) {
+    if (_data_manager->getTaskManager()->loadTask(file_path.toStdString())) {
         QMessageBox::information(this, tr("Succeed"), tr("Load task succeed!"));
     } else {
         QMessageBox::critical(this, tr("Error"), tr("Load task failed!"));
@@ -120,13 +119,13 @@ void ControlFrame::loadTaskSlot()
     }
 }
 
-void ControlFrame::saveTaskSlot()
+void TaskControlFrame::saveTaskSlot()
 {
     if (ui->lineEdit_task_name->text().isEmpty()) {
         QMessageBox::critical(this, tr("Empty task name"), tr("Please give a name for this task!"));
         return;
     }
-    if (_data_manager->getTaskManager()->getRefline().empty()) {
+    if (_data_manager->getTaskManager()->getTask().reference_line.empty()) {
         QMessageBox::critical(this, tr("Empty refline"), tr("Refline is empty!"));
         return;
     }
@@ -140,7 +139,7 @@ void ControlFrame::saveTaskSlot()
     }
 }
 
-void ControlFrame::loadBagSlot()
+void TaskControlFrame::loadBagSlot()
 {
     QString file_path = QFileDialog::getOpenFileName(this, tr("Select Bag Data"),
             QString::fromStdString(_data_manager->getMapManager()->getMapDir()), "*.bag");
@@ -151,13 +150,14 @@ void ControlFrame::loadBagSlot()
     ui->lineEdit_bag_path->setText(file_path);
 }
 
-void ControlFrame::extractBagSlot()
+void TaskControlFrame::extractBagSlot()
 {
     if (ui->lineEdit_bag_path->text().isEmpty()) {
         QMessageBox::warning(this, tr("Empty bag path"), tr("Please select a bag file first!"));
         return;
     }
-    if (_data_manager->extractBagData(ui->lineEdit_bag_path->text().toStdString())) {
+    if (_data_manager->getTaskManager()->extractBagData(
+                ui->lineEdit_bag_path->text().toStdString())) {
         QMessageBox::information(this, tr("Succeed"), tr("Extract bag succeed!"));
     } else {
         QMessageBox::critical(this, tr("Error"), tr("Extract bag failed!"));
@@ -165,27 +165,29 @@ void ControlFrame::extractBagSlot()
     }
 }
 
-void ControlFrame::beginRecordSlot()
+void TaskControlFrame::beginRecordSlot()
 {
-    _data_manager->startRecordRefline();
+    _data_manager->getTaskManager()->startRecordRefLine();
+    emit emitStartRosSpin();
     ui->pushButton_begin_record->setEnabled(false);
     ui->pushButton_stop_record->setEnabled(true);
 }
 
-void ControlFrame::stopRecordSlot()
+void TaskControlFrame::stopRecordSlot()
 {
-    _data_manager->stopRecordRefline();
+    _data_manager->getTaskManager()->stopRecordRefLine();
+    emit emitStopRosSpin();
     ui->pushButton_begin_record->setEnabled(true);
     ui->pushButton_stop_record->setEnabled(false);
 }
 
-void ControlFrame::updateReflineInfoSlot()
+void TaskControlFrame::updateTaskInfoSlot()
 {
     ui->lineEdit_task_name->setText(QString::fromStdString(
             _data_manager->getTaskManager()->getTask().name));
     ui->lineEdit_distance->setText(QString::number(
-            _data_manager->getTaskManager()->getRefline().distance()));
-    if (_data_manager->getTaskManager()->getRefline().empty()) {
+            _data_manager->getTaskManager()->getTask().reference_line.distance()));
+    if (_data_manager->getTaskManager()->getTask().reference_line.empty()) {
         ui->pushButton_save_task->setVisible(false);
     } else {
         ui->pushButton_save_task->setVisible(true);

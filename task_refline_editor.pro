@@ -39,9 +39,10 @@ SOURCES += \
     data_manager.cpp \
     map_manager.cpp \
     task_manager.cpp \
-    control_frame.cpp \
-    task_edit_frame.cpp \
-    ros_manager.cpp
+    ros_manager.cpp \
+    refline_manager.cpp \
+    task_control_frame.cpp \
+    refline_edit_frame.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -50,14 +51,16 @@ HEADERS += \
     data_manager.h \
     map_manager.h \
     task_manager.h \
-    control_frame.h \
-    task_edit_frame.h \
-    ros_manager.h
+    ros_manager.h \
+    utils.h \
+    refline_manager.h \
+    task_control_frame.h \
+    refline_edit_frame.h
 
 FORMS += \
         mainwindow.ui \
-    control_frame.ui \
-    task_edit_frame.ui
+    task_control_frame.ui \
+    refline_edit_frame.ui
 
 RESOURCES += \
     icons.qrc

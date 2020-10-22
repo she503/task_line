@@ -7,8 +7,8 @@
 #include "ros_manager.h"
 #include "data_manager.h"
 #include "editor_viewer.h"
-#include "control_frame.h"
-#include "task_edit_frame.h"
+#include "task_control_frame.h"
+#include "refline_edit_frame.h"
 
 namespace Ui {
 class MainWindow;
@@ -22,14 +22,11 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-private slots:
-    void stopRosSpinSlot();
-
 private:
     DataManager* _data_manager;
     EditorViewer* _editor_viewer;
-    ControlFrame* _control_frame;
-    TaskEditFrame* _task_edit_frame;
+    TaskControlFrame* _task_control_frame;
+    RefLineEditFrame* _refline_edit_frame;
 
     RosManager* _ros_manager;
     QThread* _ros_thread;

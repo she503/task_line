@@ -13,12 +13,6 @@ RosManager::~RosManager()
     _is_stop = true;
 }
 
-void RosManager::stopRosSpin()
-{
-    QMutexLocker locker(&_stop_mutex);
-    _is_stop = true;
-}
-
 void RosManager::startRosSpin()
 {
     _node_handle.reset(new ros::NodeHandle("~"));
@@ -44,6 +38,12 @@ void RosManager::startRosSpin()
         QMutexLocker locker(&_stop_mutex);
         _is_stop = true;
     }
+}
+
+void RosManager::stopRosSpin()
+{
+    QMutexLocker locker(&_stop_mutex);
+    _is_stop = true;
 }
 
 void RosManager::localizationCallback(const ros_msgs::OdometryPtr &odometry)

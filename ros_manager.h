@@ -14,13 +14,12 @@ public:
     explicit RosManager(QObject *parent = nullptr);
     ~RosManager();
 
-    void stopRosSpin();
-
 signals:
     void emitLocalization(const float x, const float y, const float theta);
 
 public slots:
     void startRosSpin();
+    void stopRosSpin();
 
 private:
     void localizationCallback(const ros_msgs::OdometryPtr& odometry);

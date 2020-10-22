@@ -30,7 +30,7 @@ void VehicleItem::update(const QTransform &transform)
 void VehicleItem::init()
 {
     _group_root = new QGraphicsItemGroup();
-    _group_root->setZValue(20);
+    _group_root->setZValue(30);
 
     _polygon_item = new QGraphicsPolygonItem(_group_root);
     _polygon_item->setBrush(QBrush(QColor(0, 255, 0)));

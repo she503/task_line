@@ -20,27 +20,26 @@ EditorViewer::EditorViewer(DataManager *data_manager, QWidget *parent) :
     QGraphicsScene* scene = new QGraphicsScene(this);
     scene->addItem(_data_manager->getMapManager()->getMapItemGroup());
     scene->addItem(_data_manager->getTaskManager()->getTaskItemGroup());
+    scene->addItem(_data_manager->getRefLineManager()->getEditRefLineGroup());
     _vehicle_item = new VehicleItem(this);
     scene->addItem(_vehicle_item->getVehicleGroup());
     this->setScene(scene);
     QTransform transform(10, 0, 0, -10, 0, 0);
     this->setTransform(transform);
 
-    connect(_data_manager, SIGNAL(emitStartRosSpin()), this, SLOT(startRecordSlot()));
-    connect(_data_manager, SIGNAL(emitStopRosSpin()), this, SLOT(stopRecordSlot()));
-    connect(_data_manager, SIGNAL(emitDrawReflineFlag(bool)),
-            this, SLOT(drawReflineFlagSlot(bool)));
-
     _draw_menu = new QMenu(this);
     _draw_menu->addAction(tr("pop"), this, SIGNAL(emitPopRefPoint()));
-    _draw_menu->addAction(tr("finish"), this, SIGNAL(emitFinishDrawRefline()));
+    _draw_menu->addAction(tr("finish"), this, SLOT(finishDrawRefLineSlot()));
     _draw_menu->addAction(tr("clear"), this, SIGNAL(emitClearRefPoint()));
 
-    connect(this, SIGNAL(emitAppendRefPoint(float,float)),
-            _data_manager, SLOT(appendRefPoint(float,float)));
-    connect(this, SIGNAL(emitPopRefPoint()), _data_manager, SLOT(popRefPoint()));
-    connect(this, SIGNAL(emitFinishDrawRefline()), _data_manager, SLOT(finishDrawRefline()));
-    connect(this, SIGNAL(emitClearRefPoint()), _data_manager, SLOT(clearRefPoint()));
+    connect(this, SIGNAL(emitAppendRefPoint(float,float,float)),
+            _data_manager->getTaskManager(), SLOT(appendRefPoint(float,float,float)));
+    connect(this, SIGNAL(emitPopRefPoint()),
+            _data_manager->getTaskManager(), SLOT(popRefPoint()));
+    connect(this, SIGNAL(emitFinishDrawRefline()),
+            _data_manager->getTaskManager(), SLOT(finishDrawRefline()));
+    connect(this, SIGNAL(emitClearRefPoint()),
+            _data_manager->getTaskManager(), SLOT(clearRefLine()));
 }
 
 EditorViewer::~EditorViewer()
@@ -50,21 +49,25 @@ EditorViewer::~EditorViewer()
 
 void EditorViewer::startRecordSlot()
 {
+    this->setViewerMode(MODE_RECORD_REFLINE);
     _vehicle_item->setVisible(true);
 }
 
 void EditorViewer::stopRecordSlot()
 {
+    this->setViewerMode(MODE_NORMAL);
     _vehicle_item->setVisible(false);
 }
 
-void EditorViewer::drawReflineFlagSlot(const bool flag)
+void EditorViewer::finishDrawRefLineSlot()
 {
-    if (flag) {
-        this->setViewerMode(ViewerMode::MODE_DRAW_REFLINE);
-    } else {
-        this->setViewerMode(ViewerMode::MODE_NORMAL);
-    }
+    this->setViewerMode(ViewerMode::MODE_NORMAL);
+    emit emitFinishDrawRefline();
+}
+
+void EditorViewer::startDrawRefLineSlot()
+{
+    this->setViewerMode(ViewerMode::MODE_DRAW_REFLINE);
 }
 
 void EditorViewer::setViewerMode(EditorViewer::ViewerMode mode)
@@ -72,6 +75,9 @@ void EditorViewer::setViewerMode(EditorViewer::ViewerMode mode)
     _viewer_mode = mode;
     switch (_viewer_mode) {
     case MODE_NORMAL:
+        this->setDragMode(QGraphicsView::ScrollHandDrag);
+        break;
+    case MODE_RECORD_REFLINE:
         this->setDragMode(QGraphicsView::ScrollHandDrag);
         break;
     case MODE_DRAW_REFLINE:
@@ -146,7 +152,7 @@ void EditorViewer::mouseReleaseEvent(QMouseEvent *event)
     case MODE_NORMAL:
         break;
     case MODE_DRAW_REFLINE:
-        emit emitAppendRefPoint(pt.x(), pt.y());
+        emit emitAppendRefPoint(pt.x(), pt.y(), 0);
         break;
     case MODE_SELECT_POINT:
         break;
@@ -168,9 +174,14 @@ void EditorViewer::contextMenuEvent(QContextMenuEvent *event)
 
 void EditorViewer::updateLocalization(const float x, const float y, const float theta)
 {
+    if (_viewer_mode != MODE_RECORD_REFLINE) {
+        return;
+    }
     float sin_value = std::sin(theta);
     float cos_value = std::cos(theta);
     QTransform transform(cos_value, sin_value, -sin_value, cos_value, x, y);
     _vehicle_item->update(transform);
     this->centerOn(x, y);
 }
+
+

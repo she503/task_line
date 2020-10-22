@@ -18,23 +18,25 @@ public:
 
     enum ViewerMode {
         MODE_NORMAL = 0,
-        MODE_DRAW_REFLINE = 1,
-        MODE_SELECT_POINT = 2
+        MODE_RECORD_REFLINE = 1,
+        MODE_DRAW_REFLINE = 2,
+        MODE_SELECT_POINT = 3
     };
 
 signals:
-    void emitAppendRefPoint(const float x, const float y);
+    void emitAppendRefPoint(const float x, const float y, const float theta);
     void emitPopRefPoint();
     void emitFinishDrawRefline();
     void emitClearRefPoint();
 
 public slots:
     void updateLocalization(const float x, const float y, const float theta);
-
-private slots:
+    void startDrawRefLineSlot();
     void startRecordSlot();
     void stopRecordSlot();
-    void drawReflineFlagSlot(const bool flag);
+
+private slots:
+    void finishDrawRefLineSlot();
 
 private:
     void setViewerMode(ViewerMode mode);
