@@ -17,10 +17,15 @@ public:
     explicit TaskControlFrame(DataManager* data_manager, QWidget *parent = 0);
     ~TaskControlFrame();
 
+public slots:
+    void refLineUnEditModeSlot();
+    void refLineEditModeSlot();
+
 signals:
-    void emitStartDrawRefLine();
     void emitStartRosSpin();
     void emitStopRosSpin();
+    void emitStartDrawRefLine();
+    void emitStopDrawRefLine();
 
 private slots:
     void loadMapSlot();
@@ -33,8 +38,11 @@ private slots:
     void loadBagSlot();
     void extractBagSlot();
 
-    void beginRecordSlot();
+    void startRecordSlot();
     void stopRecordSlot();
+
+    void startDrawSlot();
+    void stopDrawSlot();
 
     void updateTaskInfoSlot();
 

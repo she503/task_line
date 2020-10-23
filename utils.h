@@ -56,7 +56,7 @@ struct RefPoint {
     tergeo::task::ReferencePoint::Type type;
     bool is_edge_wise = false;
     float edge_dist;
-    bool is_checked = false;
+    bool is_selected = false;
 };
 
 using RefLine = QList<RefPoint>;

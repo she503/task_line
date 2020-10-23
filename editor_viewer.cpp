@@ -29,15 +29,12 @@ EditorViewer::EditorViewer(DataManager *data_manager, QWidget *parent) :
 
     _draw_menu = new QMenu(this);
     _draw_menu->addAction(tr("pop"), this, SIGNAL(emitPopRefPoint()));
-    _draw_menu->addAction(tr("finish"), this, SLOT(finishDrawRefLineSlot()));
     _draw_menu->addAction(tr("clear"), this, SIGNAL(emitClearRefPoint()));
 
-    connect(this, SIGNAL(emitAppendRefPoint(float,float,float)),
-            _data_manager->getTaskManager(), SLOT(appendRefPoint(float,float,float)));
+    connect(this, SIGNAL(emitAppendRefPoint(float,float)),
+            _data_manager->getTaskManager(), SLOT(appendRefPoint(float,float)));
     connect(this, SIGNAL(emitPopRefPoint()),
             _data_manager->getTaskManager(), SLOT(popRefPoint()));
-    connect(this, SIGNAL(emitFinishDrawRefline()),
-            _data_manager->getTaskManager(), SLOT(finishDrawRefline()));
     connect(this, SIGNAL(emitClearRefPoint()),
             _data_manager->getTaskManager(), SLOT(clearRefLine()));
 }
@@ -59,15 +56,14 @@ void EditorViewer::stopRecordSlot()
     _vehicle_item->setVisible(false);
 }
 
-void EditorViewer::finishDrawRefLineSlot()
-{
-    this->setViewerMode(ViewerMode::MODE_NORMAL);
-    emit emitFinishDrawRefline();
-}
-
 void EditorViewer::startDrawRefLineSlot()
 {
-    this->setViewerMode(ViewerMode::MODE_DRAW_REFLINE);
+    this->setViewerMode(MODE_DRAW_REFLINE);
+}
+
+void EditorViewer::stopDrawRefLineSlot()
+{
+    this->setViewerMode(MODE_NORMAL);
 }
 
 void EditorViewer::setViewerMode(EditorViewer::ViewerMode mode)
@@ -84,7 +80,7 @@ void EditorViewer::setViewerMode(EditorViewer::ViewerMode mode)
         this->setDragMode(QGraphicsView::NoDrag);
         this->setCursor(QCursor(Qt::CrossCursor));
         break;
-    case MODE_SELECT_POINT:
+    case MODE_EDIT_REFLINE:
         this->setDragMode(QGraphicsView::NoDrag);
         this->setCursor(QCursor(Qt::ArrowCursor));
         break;
@@ -110,7 +106,7 @@ void EditorViewer::mousePressEvent(QMouseEvent *event)
         break;
     case MODE_DRAW_REFLINE:
         break;
-    case MODE_SELECT_POINT:
+    case MODE_EDIT_REFLINE:
         break;
     default:
         break;
@@ -131,7 +127,7 @@ void EditorViewer::mouseMoveEvent(QMouseEvent *event)
         break;
     case MODE_DRAW_REFLINE:
         break;
-    case MODE_SELECT_POINT:
+    case MODE_EDIT_REFLINE:
         break;
     default:
         break;
@@ -152,9 +148,9 @@ void EditorViewer::mouseReleaseEvent(QMouseEvent *event)
     case MODE_NORMAL:
         break;
     case MODE_DRAW_REFLINE:
-        emit emitAppendRefPoint(pt.x(), pt.y(), 0);
+        emit emitAppendRefPoint(pt.x(), pt.y());
         break;
-    case MODE_SELECT_POINT:
+    case MODE_EDIT_REFLINE:
         break;
     default:
         break;

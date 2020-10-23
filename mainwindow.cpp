@@ -29,10 +29,17 @@ MainWindow::MainWindow(QWidget *parent) :
             _ros_manager, SLOT(stopRosSpin()));
     connect(_task_control_frame, SIGNAL(emitStartDrawRefLine()),
             _editor_viewer, SLOT(startDrawRefLineSlot()));
+    connect(_task_control_frame, SIGNAL(emitStopDrawRefLine()),
+            _editor_viewer, SLOT(stopDrawRefLineSlot()));
     connect(_task_control_frame, SIGNAL(emitStartRosSpin()),
             _editor_viewer, SLOT(startRecordSlot()));
     connect(_task_control_frame, SIGNAL(emitStopRosSpin()),
             _editor_viewer, SLOT(stopRecordSlot()));
+
+    connect(_refline_edit_frame, SIGNAL(emitUnEditMode()),
+            _task_control_frame, SLOT(refLineUnEditModeSlot()));
+    connect(_refline_edit_frame, SIGNAL(emitEditMode()),
+            _task_control_frame, SLOT(refLineEditModeSlot()));
 
     connect(_ros_manager, SIGNAL(emitLocalization(float,float,float)),
             _data_manager->getTaskManager(), SLOT(appendRefPoint(float,float,float)));

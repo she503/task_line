@@ -2,6 +2,8 @@
 #define TASK_REFLINE_EDITOR_REFLINE_EDIT_FRAME_H
 
 #include <QFrame>
+#include <QTreeWidgetItem>
+
 #include "data_manager.h"
 
 namespace Ui {
@@ -18,10 +20,24 @@ public:
 
 signals:
     void emitStartEditRefLine();
+    void emitUnEditMode();
+    void emitEditMode();
 
 private slots:
     void updateReflineInfoSlot();
+    void updateSelectedPointsSlot();
+    void updatePointsTypeSlot();
+
     void editRefLineCheckdChangedSlot();
+
+    void treeWidgetItemClickedSlot(QTreeWidgetItem *item, int column);
+    void treeWidgetItemDoubleClickedSlot(QTreeWidgetItem *item, int column);
+
+    void resetSlot();
+    void okSlot();
+
+    void setPointsTypeSlot();
+
 
 private:
     void setUnEditMode();
@@ -29,6 +45,7 @@ private:
 
 private:
     DataManager* _data_manager;
+    RefLineManager* _refline_manager;
     Ui::RefLineEditFrame *ui;
 };
 

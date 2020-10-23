@@ -20,23 +20,20 @@ public:
         MODE_NORMAL = 0,
         MODE_RECORD_REFLINE = 1,
         MODE_DRAW_REFLINE = 2,
-        MODE_SELECT_POINT = 3
+        MODE_EDIT_REFLINE = 3
     };
 
 signals:
-    void emitAppendRefPoint(const float x, const float y, const float theta);
+    void emitAppendRefPoint(const float x, const float y);
     void emitPopRefPoint();
-    void emitFinishDrawRefline();
     void emitClearRefPoint();
 
 public slots:
     void updateLocalization(const float x, const float y, const float theta);
-    void startDrawRefLineSlot();
     void startRecordSlot();
     void stopRecordSlot();
-
-private slots:
-    void finishDrawRefLineSlot();
+    void startDrawRefLineSlot();
+    void stopDrawRefLineSlot();
 
 private:
     void setViewerMode(ViewerMode mode);

@@ -18,6 +18,7 @@ public:
     RefLineManager *getRefLineManager();
 
     void copyTaskToRefLine();
+    void copyRefLineToTask();
 
 private:
     MapManager* _map_manager;

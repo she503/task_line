@@ -14,19 +14,28 @@ public:
 
     RefLine &getRefLine();
     const RefLine &getRefLine() const;
+    void setUnEditMode();
 
     void updateRefLine();
+    void updateSelectedPoints(const int first, const int last);
+
+    void setSelectedPointsType(const tergeo::task::ReferencePoint::Type& type);
+
+
     QGraphicsItemGroup *getEditRefLineGroup();
 
 signals:
     void emitRefLineUpdate();
+    void emitSelectedPointsChanged();
+    void emitPointsTypeChanged();
 
 public slots:
 
 private:
-    void updateRefLineGroup();
     void updatePathItem();
     void updateRefPointGroup();
+
+    void clearRefLine();
 
 private:
     RefLine _ref_line;

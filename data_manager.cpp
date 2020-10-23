@@ -31,3 +31,9 @@ void DataManager::copyTaskToRefLine()
     _task_manager->toRefLine(_refline_manager->getRefLine());
     _refline_manager->updateRefLine();
 }
+
+void DataManager::copyRefLineToTask()
+{
+    _task_manager->fromRefLine(_refline_manager->getRefLine());
+    _refline_manager->setUnEditMode();
+}

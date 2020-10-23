@@ -26,6 +26,8 @@ public:
     bool extractBagData(const std::string& bag_file);
     void startRecordRefLine();
     void stopRecordRefLine();
+    void startDrawRefLine();
+    void finishDrawRefline();
 
     const tergeo::task::Task& getTask() const;
     QGraphicsItemGroup *getTaskItemGroup();
@@ -37,14 +39,15 @@ signals:
     void emitTaskUpdate();
 
 public slots:
-    void appendRefPoint(const float x, const float y, const float theta = 0);
+    void appendRefPoint(const float x, const float y, const float theta);
+    void appendRefPoint(const float x, const float y);
     void popRefPoint();
-    void finishDrawRefline();
     void clearRefLine();
 
 private:
     void updateTask();
-    void updateTaskItemGroup();
+    void updateTaskItemGroupWithoutPoints();
+    void updateTaskItemGroupWithPoints();
     void updatePathItemGroup();
 
 private:

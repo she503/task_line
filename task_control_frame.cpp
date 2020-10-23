@@ -14,6 +14,7 @@ TaskControlFrame::TaskControlFrame(DataManager *data_manager, QWidget *parent) :
     ui->groupBox_record->setVisible(false);
     ui->groupBox_road_edge->setVisible(false);
     ui->groupBox_task->setVisible(false);
+    ui->groupBox_draw->setVisible(false);
     ui->pushButton_load_task->setVisible(false);
     ui->pushButton_save_task->setVisible(false);
 
@@ -31,10 +32,14 @@ TaskControlFrame::TaskControlFrame(DataManager *data_manager, QWidget *parent) :
             this, SLOT(loadBagSlot()));
     connect(ui->pushButton_extract_bag, SIGNAL(clicked(bool)),
             this, SLOT(extractBagSlot()));
-    connect(ui->pushButton_begin_record, SIGNAL(clicked(bool)),
-            this, SLOT(beginRecordSlot()));
+    connect(ui->pushButton_start_record, SIGNAL(clicked(bool)),
+            this, SLOT(startRecordSlot()));
     connect(ui->pushButton_stop_record, SIGNAL(clicked(bool)),
             this, SLOT(stopRecordSlot()));
+    connect(ui->pushButton_start_draw, SIGNAL(clicked(bool)),
+            this, SLOT(startDrawSlot()));
+    connect(ui->pushButton_stop_draw, SIGNAL(clicked(bool)),
+            this, SLOT(stopDrawSlot()));
 
     connect(_data_manager->getTaskManager(), SIGNAL(emitTaskUpdate()),
             this, SLOT(updateTaskInfoSlot()));
@@ -43,6 +48,16 @@ TaskControlFrame::TaskControlFrame(DataManager *data_manager, QWidget *parent) :
 TaskControlFrame::~TaskControlFrame()
 {
     delete ui;
+}
+
+void TaskControlFrame::refLineUnEditModeSlot()
+{
+    this->setEnabled(true);
+}
+
+void TaskControlFrame::refLineEditModeSlot()
+{
+    this->setEnabled(false);
 }
 
 void TaskControlFrame::loadMapSlot()
@@ -82,24 +97,30 @@ void TaskControlFrame::taskResourceChangedSlot(const int index)
     ui->lineEdit_distance->setText("");
     if (index == 0) {
         ui->groupBox_record->setVisible(true);
-        ui->pushButton_begin_record->setEnabled(true);
+        ui->pushButton_start_record->setEnabled(true);
         ui->pushButton_stop_record->setEnabled(false);
         ui->groupBox_extract_bag->setVisible(false);
         ui->pushButton_load_task->setVisible(false);
+        ui->groupBox_draw->setVisible(false);
     } else if (index == 1) {
         ui->groupBox_record->setVisible(false);
         ui->groupBox_extract_bag->setVisible(true);
+        ui->pushButton_load_bag->setEnabled(true);
+        ui->pushButton_extract_bag->setEnabled(false);
         ui->pushButton_load_task->setVisible(false);
+        ui->groupBox_draw->setVisible(false);
     } else if (index == 2) {
         ui->groupBox_record->setVisible(false);
         ui->groupBox_extract_bag->setVisible(false);
         ui->pushButton_load_task->setVisible(true);
+        ui->groupBox_draw->setVisible(false);
     } else {
         ui->groupBox_record->setVisible(false);
         ui->groupBox_extract_bag->setVisible(false);
         ui->pushButton_load_task->setVisible(false);
-        emit emitStartDrawRefLine();
-        return;
+        ui->groupBox_draw->setVisible(true);
+        ui->pushButton_start_draw->setEnabled(true);
+        ui->pushButton_stop_draw->setEnabled(false);
     }
 }
 
@@ -145,9 +166,11 @@ void TaskControlFrame::loadBagSlot()
             QString::fromStdString(_data_manager->getMapManager()->getMapDir()), "*.bag");
     if (file_path.isEmpty()) {
         QMessageBox::warning(this, tr("Empty bag path"), tr("Please select a bag file!"));
+        ui->pushButton_extract_bag->setEnabled(false);
         return;
     }
     ui->lineEdit_bag_path->setText(file_path);
+    ui->pushButton_extract_bag->setEnabled(true);
 }
 
 void TaskControlFrame::extractBagSlot()
@@ -165,11 +188,11 @@ void TaskControlFrame::extractBagSlot()
     }
 }
 
-void TaskControlFrame::beginRecordSlot()
+void TaskControlFrame::startRecordSlot()
 {
     _data_manager->getTaskManager()->startRecordRefLine();
     emit emitStartRosSpin();
-    ui->pushButton_begin_record->setEnabled(false);
+    ui->pushButton_start_record->setEnabled(false);
     ui->pushButton_stop_record->setEnabled(true);
 }
 
@@ -177,8 +200,24 @@ void TaskControlFrame::stopRecordSlot()
 {
     _data_manager->getTaskManager()->stopRecordRefLine();
     emit emitStopRosSpin();
-    ui->pushButton_begin_record->setEnabled(true);
+    ui->pushButton_start_record->setEnabled(true);
     ui->pushButton_stop_record->setEnabled(false);
+}
+
+void TaskControlFrame::startDrawSlot()
+{
+    _data_manager->getTaskManager()->startDrawRefLine();
+    emit emitStartDrawRefLine();
+    ui->pushButton_start_draw->setEnabled(false);
+    ui->pushButton_stop_draw->setEnabled(true);
+}
+
+void TaskControlFrame::stopDrawSlot()
+{
+    _data_manager->getTaskManager()->finishDrawRefline();
+    emit emitStopDrawRefLine();
+    ui->pushButton_start_draw->setEnabled(true);
+    ui->pushButton_stop_draw->setEnabled(false);
 }
 
 void TaskControlFrame::updateTaskInfoSlot()
