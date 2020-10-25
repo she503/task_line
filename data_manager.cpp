@@ -26,10 +26,14 @@ RefLineManager *DataManager::getRefLineManager()
     return _refline_manager;
 }
 
-void DataManager::copyTaskToRefLine()
+bool DataManager::copyTaskToRefLine()
 {
+    if (_task_manager->getTask().reference_line.empty()) {
+        return false;
+    }
     _task_manager->toRefLine(_refline_manager->getRefLine());
     _refline_manager->updateRefLine();
+    return true;
 }
 
 void DataManager::copyRefLineToTask()

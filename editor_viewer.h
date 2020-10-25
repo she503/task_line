@@ -2,9 +2,10 @@
 #define TASK_REFLINE_EDITOR_EDITOR_VIEWER_H
 
 #include <QMenu>
-#include <QGraphicsView>
 #include <QWheelEvent>
+#include <QGraphicsView>
 #include <QContextMenuEvent>
+#include <QGraphicsEllipseItem>
 #include <common/math.hpp>
 #include "data_manager.h"
 #include "vehicle_item.h"
@@ -34,6 +35,8 @@ public slots:
     void stopRecordSlot();
     void startDrawRefLineSlot();
     void stopDrawRefLineSlot();
+    void startEditRefLineSlot();
+    void stopEditRefLineSlot();
 
 private:
     void setViewerMode(ViewerMode mode);
@@ -42,14 +45,25 @@ private:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void mouseDoubleClickEvent(QMouseEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
 
 private:
     DataManager* _data_manager;
-    VehicleItem* _vehicle_item;
+    RefLineManager* _refline_manager;
+
     ViewerMode _viewer_mode = MODE_NORMAL;
+    Qt::MouseButton _last_pressed_button = Qt::NoButton;
+//    QGraphicsEllipseItem* _pressed_pt_item = nullptr;
+    QPointF _last_mouse_pos;
+    bool _can_move = false;
+    bool _has_moved = false;
+    int _inserted_index = -1;
 
     QMenu* _draw_menu;
+    QMenu* _edit_menu;
+
+    VehicleItem* _vehicle_item;
 };
 
 #endif // RECORD_VIEWER_H

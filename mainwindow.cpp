@@ -40,6 +40,10 @@ MainWindow::MainWindow(QWidget *parent) :
             _task_control_frame, SLOT(refLineUnEditModeSlot()));
     connect(_refline_edit_frame, SIGNAL(emitEditMode()),
             _task_control_frame, SLOT(refLineEditModeSlot()));
+    connect(_refline_edit_frame, SIGNAL(emitUnEditMode()),
+            _editor_viewer, SLOT(stopEditRefLineSlot()));
+    connect(_refline_edit_frame, SIGNAL(emitEditMode()),
+            _editor_viewer, SLOT(startEditRefLineSlot()));
 
     connect(_ros_manager, SIGNAL(emitLocalization(float,float,float)),
             _data_manager->getTaskManager(), SLOT(appendRefPoint(float,float,float)));

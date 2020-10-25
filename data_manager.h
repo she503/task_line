@@ -17,7 +17,7 @@ public:
     TaskManager *getTaskManager();
     RefLineManager *getRefLineManager();
 
-    void copyTaskToRefLine();
+    bool copyTaskToRefLine();
     void copyRefLineToTask();
 
 private:

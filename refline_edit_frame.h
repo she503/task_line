@@ -19,7 +19,6 @@ public:
     ~RefLineEditFrame();
 
 signals:
-    void emitStartEditRefLine();
     void emitUnEditMode();
     void emitEditMode();
 
@@ -33,11 +32,20 @@ private slots:
     void treeWidgetItemClickedSlot(QTreeWidgetItem *item, int column);
     void treeWidgetItemDoubleClickedSlot(QTreeWidgetItem *item, int column);
 
-    void resetSlot();
     void okSlot();
 
     void setPointsTypeSlot();
+    void plusXSlot();
+    void minusXSlot();
+    void plusYSlot();
+    void minusYSlot();
+    void plusEdgeDist();
+    void minusEdgeDist();
 
+    void deleteSlot();
+    void resampleSlot();
+    void smoothSlot();
+    void resetSlot();
 
 private:
     void setUnEditMode();

@@ -6,6 +6,8 @@
 #include <QGraphicsItemGroup>
 #include "utils.h"
 
+#define IndexRole Qt::UserRole + 10
+
 class RefLineManager : public QObject
 {
     Q_OBJECT
@@ -17,10 +19,18 @@ public:
     void setUnEditMode();
 
     void updateRefLine();
-    void updateSelectedPoints(const int first, const int last);
+    void updateSelectedPointIndex(const int index);
+    void setSelectedPointIndex(const int index);
+    void setSelectedPointRect(const QRectF& rect);
+
 
     void setSelectedPointsType(const tergeo::task::ReferencePoint::Type& type);
+    void updateSelectedPointsPos(const QPointF& changed_pos);
+    void deleteSelectedPoints();
+    void resampleSelectedPoints();
+    void smoothSelectedPoints();
 
+    int searchNearestPtIndex(const QPointF& point);
 
     QGraphicsItemGroup *getEditRefLineGroup();
 
@@ -32,6 +42,8 @@ signals:
 public slots:
 
 private:
+    void updateSelectedPoints(const int first, const int last);
+
     void updatePathItem();
     void updateRefPointGroup();
 

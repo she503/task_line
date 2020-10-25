@@ -17,6 +17,8 @@ EditorViewer::EditorViewer(DataManager *data_manager, QWidget *parent) :
     this->setRenderHint(QPainter::Antialiasing);
     this->setContextMenuPolicy(Qt::DefaultContextMenu);
 
+    _refline_manager = _data_manager->getRefLineManager();
+
     QGraphicsScene* scene = new QGraphicsScene(this);
     scene->addItem(_data_manager->getMapManager()->getMapItemGroup());
     scene->addItem(_data_manager->getTaskManager()->getTaskItemGroup());
@@ -30,6 +32,10 @@ EditorViewer::EditorViewer(DataManager *data_manager, QWidget *parent) :
     _draw_menu = new QMenu(this);
     _draw_menu->addAction(tr("pop"), this, SIGNAL(emitPopRefPoint()));
     _draw_menu->addAction(tr("clear"), this, SIGNAL(emitClearRefPoint()));
+
+    _edit_menu = new QMenu(this);
+    _edit_menu->addAction(tr("select points"), this, SLOT(startRecordSlot()));
+    _edit_menu->addAction(tr("exit select"), this, SLOT(stopRecordSlot()));
 
     connect(this, SIGNAL(emitAppendRefPoint(float,float)),
             _data_manager->getTaskManager(), SLOT(appendRefPoint(float,float)));
@@ -66,6 +72,16 @@ void EditorViewer::stopDrawRefLineSlot()
     this->setViewerMode(MODE_NORMAL);
 }
 
+void EditorViewer::startEditRefLineSlot()
+{
+    this->setViewerMode(MODE_EDIT_REFLINE);
+}
+
+void EditorViewer::stopEditRefLineSlot()
+{
+    this->setViewerMode(MODE_NORMAL);
+}
+
 void EditorViewer::setViewerMode(EditorViewer::ViewerMode mode)
 {
     _viewer_mode = mode;
@@ -81,7 +97,7 @@ void EditorViewer::setViewerMode(EditorViewer::ViewerMode mode)
         this->setCursor(QCursor(Qt::CrossCursor));
         break;
     case MODE_EDIT_REFLINE:
-        this->setDragMode(QGraphicsView::NoDrag);
+        this->setDragMode(QGraphicsView::RubberBandDrag);
         this->setCursor(QCursor(Qt::ArrowCursor));
         break;
     default:
@@ -97,73 +113,89 @@ void EditorViewer::wheelEvent(QWheelEvent *event)
 
 void EditorViewer::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button() != Qt::LeftButton) {
+    _last_pressed_button = event->button();
+    _has_moved = false;
+    _can_move = false;
+    if (event->button() != Qt::LeftButton || _viewer_mode != MODE_EDIT_REFLINE) {
         QGraphicsView::mousePressEvent(event);
         return;
     }
-    switch (_viewer_mode) {
-    case MODE_NORMAL:
-        break;
-    case MODE_DRAW_REFLINE:
-        break;
-    case MODE_EDIT_REFLINE:
-        break;
-    default:
-        break;
+    _last_mouse_pos = this->mapToScene(event->pos());
+    QList<QGraphicsItem*> items = this->items(event->pos());
+    if (!items.empty()) {
+        for (const auto& item : items) {
+            if (!item->data(IndexRole).isNull()) {
+                _can_move = true;
+                break;
+            }
+        }
     }
-
     QGraphicsView::mousePressEvent(event);
 }
 
 void EditorViewer::mouseMoveEvent(QMouseEvent *event)
 {
-    if (event->button() != Qt::LeftButton) {
+    if (_last_pressed_button != Qt::LeftButton ||
+            _viewer_mode != MODE_EDIT_REFLINE || !_can_move) {
         QGraphicsView::mouseMoveEvent(event);
         return;
     }
-
-    switch (_viewer_mode) {
-    case MODE_NORMAL:
-        break;
-    case MODE_DRAW_REFLINE:
-        break;
-    case MODE_EDIT_REFLINE:
-        break;
-    default:
-        break;
-    }
-
-    QGraphicsView::mouseMoveEvent(event);
+    QPointF cur_pos = this->mapToScene(event->pos());
+    QPointF move_pos = cur_pos - _last_mouse_pos;
+    _refline_manager->updateSelectedPointsPos(move_pos);
+    _has_moved = true;
+    _last_mouse_pos = cur_pos;
 }
 
 void EditorViewer::mouseReleaseEvent(QMouseEvent *event)
 {
+    _last_pressed_button = Qt::NoButton;
     if (event->button() != Qt::LeftButton) {
         QGraphicsView::mouseReleaseEvent(event);
         return;
     }
-
     QPointF pt = this->mapToScene(event->pos());
-    switch (_viewer_mode) {
-    case MODE_NORMAL:
-        break;
-    case MODE_DRAW_REFLINE:
+    if (_viewer_mode == MODE_DRAW_REFLINE) {
         emit emitAppendRefPoint(pt.x(), pt.y());
-        break;
-    case MODE_EDIT_REFLINE:
-        break;
-    default:
-        break;
+    } else if (_viewer_mode == MODE_EDIT_REFLINE) {
+        if (!_has_moved) {
+            int nearest_index = _refline_manager->searchNearestPtIndex(pt);
+            if (nearest_index >= 0) {
+                _refline_manager->updateSelectedPointIndex(nearest_index);
+            }
+        }
+        QRectF rubber_rect = this->rubberBandRect();
+        QRectF mapped_rect;
+        if (rubber_rect.width() != 0) {
+            QPolygonF rect_pts = this->mapToScene(rubber_rect.x(), rubber_rect.y(),
+                                                  rubber_rect.width(), rubber_rect.height());
+            mapped_rect.setTopLeft(rect_pts.at(0));
+            mapped_rect.setBottomRight(rect_pts.at(2));
+            _refline_manager->setSelectedPointRect(mapped_rect);
+        }
     }
-
     QGraphicsView::mouseReleaseEvent(event);
+}
+
+void EditorViewer::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    _refline_manager->updateSelectedPointIndex(-1);
+    QGraphicsView::mouseDoubleClickEvent(event);
 }
 
 void EditorViewer::contextMenuEvent(QContextMenuEvent *event)
 {
     if (_viewer_mode == MODE_DRAW_REFLINE) {
         _draw_menu->exec(QCursor::pos());
-    } else {
+    } /*else if (_viewer_mode == MODE_EDIT_REFLINE) {
+        QList<QGraphicsItem*> items = this->items(event->pos());
+        if (items.empty()) {
+            QGraphicsView::contextMenuEvent(event);
+            return;
+        }
+        // TODO INSERT POINT
+
+    }*/ else {
         QGraphicsView::contextMenuEvent(event);
     }
 }

@@ -1,6 +1,8 @@
 #include "refline_edit_frame.h"
 #include "ui_refline_edit_frame.h"
 
+#include <QMessageBox>
+
 #define IndexRole Qt::UserRole + 10
 
 RefLineEditFrame::RefLineEditFrame(DataManager *data_manager, QWidget *parent) :
@@ -27,6 +29,24 @@ RefLineEditFrame::RefLineEditFrame(DataManager *data_manager, QWidget *parent) :
     connect(ui->pushButton_reset, SIGNAL(clicked(bool)), this, SLOT(resetSlot()));
     connect(ui->pushButton_set_intent, SIGNAL(clicked(bool)),
             this, SLOT(setPointsTypeSlot()));
+    connect(ui->pushButton_x_plus, SIGNAL(clicked(bool)),
+            this, SLOT(plusXSlot()));
+    connect(ui->pushButton_x_minus, SIGNAL(clicked(bool)),
+            this, SLOT(minusXSlot()));
+    connect(ui->pushButton_y_plus, SIGNAL(clicked(bool)),
+            this, SLOT(plusYSlot()));
+    connect(ui->pushButton_y_minus, SIGNAL(clicked(bool)),
+            this, SLOT(minusYSlot()));
+    connect(ui->pushButton_edge_dist_plus, SIGNAL(clicked(bool)),
+            this, SLOT(plusEdgeDist()));
+    connect(ui->pushButton_edge_dist_minus, SIGNAL(clicked(bool)),
+            this, SLOT(minusEdgeDist()));
+    connect(ui->pushButton_delete, SIGNAL(clicked(bool)),
+            this, SLOT(deleteSlot()));
+    connect(ui->pushButton_resample, SIGNAL(clicked(bool)),
+            this, SLOT(resampleSlot()));
+    connect(ui->pushButton_smooth, SIGNAL(clicked(bool)),
+            this, SLOT(smoothSlot()));
 
     connect(ui->treeWidget, SIGNAL(itemClicked(QTreeWidgetItem*,int)),
             this, SLOT(treeWidgetItemClickedSlot(QTreeWidgetItem*,int)));
@@ -131,7 +151,12 @@ void RefLineEditFrame::updatePointsTypeSlot()
 void RefLineEditFrame::editRefLineCheckdChangedSlot()
 {
     if (ui->checkBox_edit_ref_line->isChecked()) {
-        _data_manager->copyTaskToRefLine();
+        if (!_data_manager->copyTaskToRefLine()) {
+            QMessageBox::warning(this, tr("warning"), tr("Task refline is empty, please check!"));
+            ui->checkBox_edit_ref_line->setChecked(false);
+            this->setUnEditMode();
+            return;
+        }
         this->setEditMode();
     } else {
         this->setUnEditMode();
@@ -141,37 +166,15 @@ void RefLineEditFrame::editRefLineCheckdChangedSlot()
 void RefLineEditFrame::treeWidgetItemClickedSlot(QTreeWidgetItem *item, int column)
 {
     if (column != 0) return;
-
     int cur_index = item->data(column, IndexRole).toInt();
-    int first_index = -1;
-    QTreeWidgetItem* root_item = ui->treeWidget->invisibleRootItem();
-    for (int i = 0; i < root_item->childCount(); ++i) {
-        if (root_item->child(i)->checkState(column) == Qt::Checked) {
-            first_index = i;
-            break;
-        }
-    }
-    if (first_index < 0) {
-        _refline_manager->updateSelectedPoints(cur_index, cur_index);
-    } else if (first_index >= cur_index) {
-        _refline_manager->updateSelectedPoints(-1, -1);
-    } else {
-        _refline_manager->updateSelectedPoints(first_index, cur_index);
-    }
+    _refline_manager->updateSelectedPointIndex(cur_index);
 }
 
 void RefLineEditFrame::treeWidgetItemDoubleClickedSlot(QTreeWidgetItem *item, int column)
 {
     if (column != 0) return;
-
     int cur_index = item->data(column, IndexRole).toInt();
-    _refline_manager->updateSelectedPoints(cur_index, cur_index);
-}
-
-void RefLineEditFrame::resetSlot()
-{
-    _data_manager->copyTaskToRefLine();
-    this->setEditMode();
+    _refline_manager->setSelectedPointIndex(cur_index);
 }
 
 void RefLineEditFrame::okSlot()
@@ -191,6 +194,65 @@ void RefLineEditFrame::setPointsTypeSlot()
             break;
         }
     }
+}
+
+void RefLineEditFrame::plusXSlot()
+{
+    float plus_value = ui->doubleSpinBox_x->value();
+    QPointF change_pos(plus_value, 0);
+    _refline_manager->updateSelectedPointsPos(change_pos);
+}
+
+void RefLineEditFrame::minusXSlot()
+{
+    float plus_value = -ui->doubleSpinBox_x->value();
+    QPointF change_pos(plus_value, 0);
+    _refline_manager->updateSelectedPointsPos(change_pos);
+}
+
+void RefLineEditFrame::plusYSlot()
+{
+    float plus_value = ui->doubleSpinBox_y->value();
+    QPointF change_pos(0, plus_value);
+    _refline_manager->updateSelectedPointsPos(change_pos);
+}
+
+void RefLineEditFrame::minusYSlot()
+{
+    float plus_value = -ui->doubleSpinBox_y->value();
+    QPointF change_pos(0, plus_value);
+    _refline_manager->updateSelectedPointsPos(change_pos);
+}
+
+void RefLineEditFrame::plusEdgeDist()
+{
+
+}
+
+void RefLineEditFrame::minusEdgeDist()
+{
+
+}
+
+void RefLineEditFrame::deleteSlot()
+{
+    _refline_manager->deleteSelectedPoints();
+}
+
+void RefLineEditFrame::resampleSlot()
+{
+    _refline_manager->resampleSelectedPoints();
+}
+
+void RefLineEditFrame::smoothSlot()
+{
+    _refline_manager->smoothSelectedPoints();
+}
+
+void RefLineEditFrame::resetSlot()
+{
+    _data_manager->copyTaskToRefLine();
+    this->setEditMode();
 }
 
 void RefLineEditFrame::setUnEditMode()
