@@ -7,8 +7,9 @@
 #include <QString>
 #include <task/task.hpp>
 
-const float ResampleDist = 0.2;
+const float ResampleDist = 0.1;
 const float SearchRadius = 1.0;
+const float MaxEdgeDist = 2.0;
 
 static QMap<tergeo::task::ReferencePoint::Type, QString> PointTypeStringMap {
     {tergeo::task::ReferencePoint::Type::TYPE_NULL, "NULL"},
@@ -58,6 +59,7 @@ struct EdgeDistInfo {
     QVector2D edge_dir;
     QPointF map_pt_1;
     QPointF map_pt_2;
+    bool has_find_edge = false;
 };
 
 struct RefPoint {

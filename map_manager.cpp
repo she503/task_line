@@ -74,17 +74,16 @@ void MapManager::calEdgeDistInfo(RefPoint &ref_point)
             const tergeo::common::math::Polyline2d& polyline = include_polygon[j];
             for (int k = 0; k < polyline.size(); ++k) {
                 QPointF cur_pt(polyline[k].x, polyline[k].y);
-                float dist = std::hypot(ref_point.pos.x() - cur_pt.x(),
-                                        ref_point.pos.y() - cur_pt.y());
+                int lat_index = k + 1;
+                if (lat_index >= polyline.size()) lat_index = 0;
+                QPointF lat_pt(polyline[lat_index].x, polyline[lat_index].y);
+                float dist = this->calPtEdgeDist(ref_point, cur_pt, lat_pt);
+                if (dist < 0) {
+                    continue;
+                }
                 if (dist < min_dist) {
                     min_dist = dist;
-                    int pre_index = k - 1;
-                    int lat_index = k + 1;
-                    if (pre_index < 0) pre_index = polyline.size() - 1;
-                    if (lat_index >= polyline.size()) lat_index = 0;
-                    QPointF pre_pt(polyline[pre_index].x, polyline[pre_index].y);
-                    QPointF lat_pt(polyline[lat_index].x, polyline[lat_index].y);
-                    this->calEdgeDistAndEdgeDir(ref_point, pre_pt, cur_pt, lat_pt);
+                    this->updateEdgeDistInfo(ref_point, dist, cur_pt, lat_pt);
                 }
             }
         }
@@ -92,20 +91,25 @@ void MapManager::calEdgeDistInfo(RefPoint &ref_point)
             const tergeo::common::math::Polyline2d& polyline = exclude_polygon[j];
             for (int k = 0; k < polyline.size(); ++k) {
                 QPointF cur_pt(polyline[k].x, polyline[k].y);
-                float dist = std::hypot(ref_point.pos.x() - cur_pt.x(),
-                                        ref_point.pos.y() - cur_pt.y());
+                int lat_index = k + 1;
+                if (lat_index >= polyline.size()) lat_index = 0;
+                QPointF lat_pt(polyline[lat_index].x, polyline[lat_index].y);
+                float dist = this->calPtEdgeDist(ref_point, cur_pt, lat_pt);
+                if (dist < 0) {
+                    continue;
+                }
                 if (dist < min_dist) {
                     min_dist = dist;
-                    int pre_index = k - 1;
-                    int lat_index = k + 1;
-                    if (pre_index < 0) pre_index = polyline.size() - 1;
-                    if (lat_index >= polyline.size()) lat_index = 0;
-                    QPointF pre_pt(polyline[pre_index].x, polyline[pre_index].y);
-                    QPointF lat_pt(polyline[lat_index].x, polyline[lat_index].y);
-                    this->calEdgeDistAndEdgeDir(ref_point, pre_pt, cur_pt, lat_pt);
+                    this->updateEdgeDistInfo(ref_point, dist, cur_pt, lat_pt);
                 }
             }
         }
+    }
+    if (min_dist > MaxEdgeDist) {
+        ref_point.edge_dist_info.has_find_edge = false;
+        ref_point.edge_dist_info.edge_dist = -1;
+    } else {
+        ref_point.edge_dist_info.has_find_edge = true;
     }
 }
 
@@ -635,6 +639,59 @@ QPointF MapManager::calEdgePoint(const tergeo::common::math::Point2d &pt_1,
     return QPointF(pt_cross.x, pt_cross.y);
 }
 
+float MapManager::calPtEdgeDist(const RefPoint &ref_point, const QPointF &cur_pt,
+                                const QPointF &lat_pt)
+{
+    float dist = -1;
+    QVector2D pt_cur_dir(ref_point.pos - cur_pt);
+    QVector2D lat_cur_dir(lat_pt - cur_pt); lat_cur_dir.normalize();
+    QVector2D pt_lat_dir(ref_point.pos - lat_pt);
+    QVector2D cur_lat_dir(cur_pt - lat_pt); cur_lat_dir.normalize();
+    float dot_value_1 = QVector2D::dotProduct(pt_cur_dir, lat_cur_dir);
+    float dot_value_2 = QVector2D::dotProduct(pt_lat_dir, cur_lat_dir);
+    if (dot_value_1 < 0 && dot_value_2 < 0) {
+        return dist;
+    }
+    if (dot_value_1 < 0) {
+        float length = pt_cur_dir.length();
+        if (length > MaxEdgeDist) {
+            return dist;
+        }
+        float theta = std::acos(dot_value_1 / length);
+        if (theta > 100.0 / 180.0 * M_PI) {
+            return dist;
+        }
+        dist = length;
+    } else if (dot_value_2 < 0) {
+        float length = pt_lat_dir.length();
+        if (length > MaxEdgeDist) {
+            return dist;
+        }
+        float theta = std::acos(dot_value_2 / length);
+        if (theta > 100.0 / 180.0 * M_PI) {
+            return dist;
+        }
+        dist = length;
+    } else {
+        dist = std::fabs(pt_cur_dir.x() * lat_cur_dir.y() - pt_cur_dir.y() * lat_cur_dir.x());
+    }
+    return dist;
+}
+
+void MapManager::updateEdgeDistInfo(RefPoint &ref_point, const float dist,
+                                    const QPointF &cur_pt, const QPointF &lat_pt)
+{
+    QVector2D pt_cur_dir(ref_point.pos - cur_pt);
+    QVector2D lat_cur_dir(lat_pt - cur_pt); lat_cur_dir.normalize();
+    QVector2D cross_dir(-lat_cur_dir.y(), lat_cur_dir.x());
+    if (QVector2D::dotProduct(pt_cur_dir, cross_dir) >= 0) {
+        ref_point.edge_dist_info.edge_dir = cross_dir;
+    } else {
+        ref_point.edge_dist_info.edge_dir = -cross_dir;
+    }
+    ref_point.edge_dist_info.edge_dist = dist;
+}
+
 void MapManager::calEdgeDistAndEdgeDir(RefPoint &ref_point, const QPointF &pre_pt,
                                        const QPointF &cur_pt, const QPointF &lat_pt)
 {
@@ -644,6 +701,7 @@ void MapManager::calEdgeDistAndEdgeDir(RefPoint &ref_point, const QPointF &pre_p
     float pt_cur_dir_length = pt_cur_dir.length();
     float theta_pre = std::acos(QVector2D::dotProduct(pt_cur_dir, pre_cur_dir) / pt_cur_dir_length);
     float theta_lat = std::acos(QVector2D::dotProduct(pt_cur_dir, lat_cur_dir) / pt_cur_dir_length);
+
     if (theta_pre <= theta_lat) {
         ref_point.edge_dist_info.map_pt_1 = pre_pt;
         ref_point.edge_dist_info.map_pt_2 = cur_pt;

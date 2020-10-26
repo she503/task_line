@@ -155,7 +155,8 @@ void RefLineManager::setSelectedEdgeDist(const float &edge_dist)
         if (i >= _ref_line.size()) {
             break;
         }
-        if (!_ref_line.at(i).is_selected || !_ref_line.at(i).edge_dist_info.is_edge_wise) {
+        if (!_ref_line.at(i).is_selected || !_ref_line.at(i).edge_dist_info.is_edge_wise ||
+                !_ref_line.at(i).edge_dist_info.has_find_edge) {
             continue;
         }
         float changed_edge_dist = edge_dist - _ref_line.at(i).edge_dist_info.edge_dist;
@@ -178,7 +179,8 @@ void RefLineManager::updateSelectedEdgeDist(const float &changed_dist)
         if (i >= _ref_line.size()) {
             break;
         }
-        if (!_ref_line.at(i).is_selected || !_ref_line.at(i).edge_dist_info.is_edge_wise) {
+        if (!_ref_line.at(i).is_selected || !_ref_line.at(i).edge_dist_info.is_edge_wise||
+                !_ref_line.at(i).edge_dist_info.has_find_edge) {
             continue;
         }
         this->adjustEdgeDist(_ref_line[i], changed_dist);
@@ -195,13 +197,20 @@ void RefLineManager::updateSelectedEdgeDist(const float &changed_dist)
 
 void RefLineManager::deleteSelectedPoints()
 {
+    bool has_change_edge_wise_point = false;
     QList<RefPoint>::iterator iter;
     for (iter = _ref_line.begin(); iter != _ref_line.end();) {
         if (iter->is_selected) {
+            if (iter->edge_dist_info.is_edge_wise) {
+                has_change_edge_wise_point = true;
+            }
             iter = _ref_line.erase(iter);
         } else {
             ++iter;
         }
+    }
+    if (has_change_edge_wise_point) {
+        emit emitEdgeDistChanged();
     }
     this->updateRefLine();
 }
@@ -381,10 +390,14 @@ void RefLineManager::resampleSelectedPointsPrivate()
 
 void RefLineManager::adjustEdgeDist(RefPoint &ref_point, const float adjust_dist)
 {
-    ref_point.edge_dist_info.edge_dist += adjust_dist;
+    float adjust_dist_tmp = adjust_dist;
+    if (ref_point.edge_dist_info.edge_dist + adjust_dist_tmp > MaxEdgeDist) {
+        adjust_dist_tmp = MaxEdgeDist - ref_point.edge_dist_info.edge_dist;
+    }
+    ref_point.edge_dist_info.edge_dist += adjust_dist_tmp;
     QPointF pt_tmp(ref_point.edge_dist_info.edge_dir.x(),
                    ref_point.edge_dist_info.edge_dir.y());
-    ref_point.pos += pt_tmp * adjust_dist;
+    ref_point.pos += pt_tmp * adjust_dist_tmp;
 }
 
 void RefLineManager::updatePathItem()

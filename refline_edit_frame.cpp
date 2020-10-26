@@ -22,6 +22,7 @@ RefLineEditFrame::RefLineEditFrame(DataManager *data_manager, QWidget *parent) :
     ui->treeWidget->setColumnCount(3);
     QStringList headers; headers << tr("Index") << tr("Type") << tr("Edge Dist");
     ui->treeWidget->setHeaderLabels(headers);
+    ui->doubleSpinBox_edge_dist->setMaximum(MaxEdgeDist);
 
     connect(ui->checkBox_edit_ref_line, SIGNAL(clicked(bool)),
             this, SLOT(editRefLineCheckdChangedSlot()));
@@ -91,8 +92,11 @@ void RefLineEditFrame::updateReflineInfoSlot()
         root_item->child(i)->setText(0, QString::number(i));
         root_item->child(i)->setText(1, PointTypeStringMap[ref_pt.type]);
         root_item->child(i)->setBackgroundColor(1, PointTypeColorMap[ref_pt.type]);
-        root_item->child(i)->setText(2, ref_pt.edge_dist_info.is_edge_wise ?
-                QString::number(ref_pt.edge_dist_info.edge_dist) : QString(""));
+        if (ref_pt.edge_dist_info.is_edge_wise) {
+            root_item->child(i)->setText(2, QString::number(ref_pt.edge_dist_info.edge_dist));
+            root_item->child(i)->setBackgroundColor(2, ref_pt.edge_dist_info.has_find_edge ?
+                                                        QColor("white") : QColor("red"));
+        }
         root_item->child(i)->setData(0, IndexRole, i);
     }
 }
@@ -112,7 +116,8 @@ void RefLineEditFrame::updateSelectedPointsSlot()
                 first_selected_index = i;
             }
             if (first_selected_edge_wise_index < 0 &&
-                    _refline_manager->getRefLine().at(i).edge_dist_info.is_edge_wise) {
+                    _refline_manager->getRefLine().at(i).edge_dist_info.is_edge_wise &&
+                    _refline_manager->getRefLine().at(i).edge_dist_info.has_find_edge) {
                 first_selected_edge_wise_index = i;
             }
             if (root_item->child(i)->checkState(0) == Qt::Unchecked) {
@@ -175,7 +180,8 @@ void RefLineEditFrame::updateEdgeDistSlot()
         if (!ref_pt.edge_dist_info.is_edge_wise) {
             continue;
         }
-        if (ref_pt.is_selected && first_selected_edge_wise_index < 0) {
+        if (ref_pt.is_selected && first_selected_edge_wise_index < 0 &&
+                ref_pt.edge_dist_info.has_find_edge) {
             first_selected_edge_wise_index = i;
         }
         bool has_change = false;
@@ -184,6 +190,9 @@ void RefLineEditFrame::updateEdgeDistSlot()
         }
         if (has_change) {
             root_item->child(i)->setText(2, QString::number(ref_pt.edge_dist_info.edge_dist));
+            root_item->child(i)->setBackgroundColor(2,
+                    ref_pt.edge_dist_info.has_find_edge ?
+                    QColor("white") : QColor("red"));
         }
     }
     if (first_selected_edge_wise_index >= 0) {
@@ -240,6 +249,7 @@ void RefLineEditFrame::setPointsTypeSlot()
             break;
         }
     }
+    _refline_manager->setSelectedPointIndex(-1);
 }
 
 void RefLineEditFrame::plusXSlot()

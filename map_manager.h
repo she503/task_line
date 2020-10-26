@@ -54,6 +54,10 @@ private:
                          const tergeo::common::math::Point2d &pt_2,
                          const tergeo::common::math::Point2d &pt_3,
                          const float dist);
+    float calPtEdgeDist(const RefPoint& ref_point,
+                        const QPointF& cur_pt, const QPointF& lat_pt);
+    void updateEdgeDistInfo(RefPoint& ref_point, const float dist,
+                            const QPointF& cur_pt, const QPointF& lat_pt);
     void calEdgeDistAndEdgeDir(RefPoint& ref_point, const QPointF& pre_pt,
                                const QPointF& cur_pt, const QPointF& lat_pt);
 private:

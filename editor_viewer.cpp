@@ -135,6 +135,10 @@ void EditorViewer::mousePressEvent(QMouseEvent *event)
 
 void EditorViewer::mouseMoveEvent(QMouseEvent *event)
 {
+    // TODO middle button drag
+//    if (_last_pressed_button == Qt::MiddleButton) {
+
+//    }
     if (_last_pressed_button != Qt::LeftButton ||
             _viewer_mode != MODE_EDIT_REFLINE || !_can_move) {
         QGraphicsView::mouseMoveEvent(event);
