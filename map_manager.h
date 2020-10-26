@@ -4,8 +4,8 @@
 #include <QGraphicsItemGroup>
 #include <common/math.hpp>
 #include <hdmap/area.hpp>
-
 #include <QObject>
+#include "utils.h"
 
 class MapManager : public QObject
 {
@@ -18,6 +18,8 @@ public:
     std::string getMapName() const;
     QGraphicsItemGroup *getMapItemGroup();
     void generateEdge(const float edge_dist);
+
+    void calEdgeDistInfo(RefPoint& ref_point);
 
 private:
     void updateSceneSize();
@@ -52,7 +54,8 @@ private:
                          const tergeo::common::math::Point2d &pt_2,
                          const tergeo::common::math::Point2d &pt_3,
                          const float dist);
-
+    void calEdgeDistAndEdgeDir(RefPoint& ref_point, const QPointF& pre_pt,
+                               const QPointF& cur_pt, const QPointF& lat_pt);
 private:
     std::string _map_dir = "";
     tergeo::hdmap::Area _map_area;

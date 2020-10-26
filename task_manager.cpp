@@ -1,15 +1,15 @@
 #include "task_manager.h"
 
-#include <common/file.hpp>
-#include <rosbag/bag.h>
-#include <rosbag/view.h>
-#include <ros_msgs/Odometry.h>
 #include <QPen>
 #include <QBrush>
 #include <QColor>
 #include <QMessageBox>
 #include <QPainterPath>
 #include <QGraphicsPathItem>
+#include <common/file.hpp>
+#include <rosbag/bag.h>
+#include <rosbag/view.h>
+#include <ros_msgs/Odometry.h>
 
 TaskManager::TaskManager(QObject *parent) : QObject(parent)
 {
@@ -143,7 +143,7 @@ void TaskManager::toRefLine(RefLine &ref_line)
         ref_point.type = _task.reference_line.at(i).type;
         ref_point.pos.setX(_task.reference_line.at(i).pose.x);
         ref_point.pos.setY(_task.reference_line.at(i).pose.y);
-        ref_point.is_edge_wise = (
+        ref_point.edge_dist_info.is_edge_wise = (
                     ref_point.type == tergeo::task::ReferencePoint::Type::TYPE_EDGE_WISE_LINE ||
                     ref_point.type == tergeo::task::ReferencePoint::Type::TYPE_EDGE_WISE_CURVE);
         ref_line.append(ref_point);

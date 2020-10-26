@@ -26,6 +26,7 @@ private slots:
     void updateReflineInfoSlot();
     void updateSelectedPointsSlot();
     void updatePointsTypeSlot();
+    void updateEdgeDistSlot();
 
     void editRefLineCheckdChangedSlot();
 
@@ -39,8 +40,9 @@ private slots:
     void minusXSlot();
     void plusYSlot();
     void minusYSlot();
-    void plusEdgeDist();
-    void minusEdgeDist();
+    void plusEdgeDistSlot();
+    void minusEdgeDistSlot();
+    void setEdgeDistSlot();
 
     void deleteSlot();
     void resampleSlot();

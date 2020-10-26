@@ -6,8 +6,6 @@
 #include <QMessageBox>
 #include <QGraphicsScene>
 
-#include <QDebug>
-
 MapManager::MapManager(QObject *parent) : QObject(parent)
 {
     _map_item = new QGraphicsItemGroup();
@@ -59,6 +57,56 @@ void MapManager::generateEdge(const float edge_dist)
     _cur_edge_dist = edge_dist;
     this->updateRoadEdge();
     this->updateSceneSize();
+}
+
+void MapManager::calEdgeDistInfo(RefPoint &ref_point)
+{
+    if (!ref_point.edge_dist_info.is_edge_wise) {
+        return;
+    }
+    float min_dist = std::numeric_limits<float>::max();
+    for (int i = 0; i < _map_roads.size(); ++i) {
+        const std::vector<tergeo::common::math::Polyline2d>& include_polygon =
+                _map_roads[i]->getIncludePolygons();
+        const std::vector<tergeo::common::math::Polyline2d>& exclude_polygon =
+                _map_roads[i]->getExcludePolygons();
+        for (int j = 0; j < include_polygon.size(); ++j) {
+            const tergeo::common::math::Polyline2d& polyline = include_polygon[j];
+            for (int k = 0; k < polyline.size(); ++k) {
+                QPointF cur_pt(polyline[k].x, polyline[k].y);
+                float dist = std::hypot(ref_point.pos.x() - cur_pt.x(),
+                                        ref_point.pos.y() - cur_pt.y());
+                if (dist < min_dist) {
+                    min_dist = dist;
+                    int pre_index = k - 1;
+                    int lat_index = k + 1;
+                    if (pre_index < 0) pre_index = polyline.size() - 1;
+                    if (lat_index >= polyline.size()) lat_index = 0;
+                    QPointF pre_pt(polyline[pre_index].x, polyline[pre_index].y);
+                    QPointF lat_pt(polyline[lat_index].x, polyline[lat_index].y);
+                    this->calEdgeDistAndEdgeDir(ref_point, pre_pt, cur_pt, lat_pt);
+                }
+            }
+        }
+        for (int j = 0; j < exclude_polygon.size(); ++j) {
+            const tergeo::common::math::Polyline2d& polyline = exclude_polygon[j];
+            for (int k = 0; k < polyline.size(); ++k) {
+                QPointF cur_pt(polyline[k].x, polyline[k].y);
+                float dist = std::hypot(ref_point.pos.x() - cur_pt.x(),
+                                        ref_point.pos.y() - cur_pt.y());
+                if (dist < min_dist) {
+                    min_dist = dist;
+                    int pre_index = k - 1;
+                    int lat_index = k + 1;
+                    if (pre_index < 0) pre_index = polyline.size() - 1;
+                    if (lat_index >= polyline.size()) lat_index = 0;
+                    QPointF pre_pt(polyline[pre_index].x, polyline[pre_index].y);
+                    QPointF lat_pt(polyline[lat_index].x, polyline[lat_index].y);
+                    this->calEdgeDistAndEdgeDir(ref_point, pre_pt, cur_pt, lat_pt);
+                }
+            }
+        }
+    }
 }
 
 void MapManager::updateSceneSize()
@@ -585,4 +633,40 @@ QPointF MapManager::calEdgePoint(const tergeo::common::math::Point2d &pt_1,
     double ratio = dist / sin_value;
     tergeo::common::math::Vector2d pt_cross = pt_2 + dir_cross * ratio;
     return QPointF(pt_cross.x, pt_cross.y);
+}
+
+void MapManager::calEdgeDistAndEdgeDir(RefPoint &ref_point, const QPointF &pre_pt,
+                                       const QPointF &cur_pt, const QPointF &lat_pt)
+{
+    QVector2D pt_cur_dir(ref_point.pos - cur_pt);
+    QVector2D pre_cur_dir(pre_pt - cur_pt); pre_cur_dir.normalize();
+    QVector2D lat_cur_dir(lat_pt - cur_pt); lat_cur_dir.normalize();
+    float pt_cur_dir_length = pt_cur_dir.length();
+    float theta_pre = std::acos(QVector2D::dotProduct(pt_cur_dir, pre_cur_dir) / pt_cur_dir_length);
+    float theta_lat = std::acos(QVector2D::dotProduct(pt_cur_dir, lat_cur_dir) / pt_cur_dir_length);
+    if (theta_pre <= theta_lat) {
+        ref_point.edge_dist_info.map_pt_1 = pre_pt;
+        ref_point.edge_dist_info.map_pt_2 = cur_pt;
+        float cros_value = std::fabs(pt_cur_dir.x() * pre_cur_dir.y() -
+                                     pt_cur_dir.y() * pre_cur_dir.x());
+        ref_point.edge_dist_info.edge_dist = cros_value;
+        QVector2D cross_dir(-pre_cur_dir.y(), pre_cur_dir.x());
+        if (QVector2D::dotProduct(pt_cur_dir, cross_dir) >= 0) {
+            ref_point.edge_dist_info.edge_dir = cross_dir;
+        } else {
+            ref_point.edge_dist_info.edge_dir = -cross_dir;
+        }
+    } else {
+        ref_point.edge_dist_info.map_pt_1 = cur_pt;
+        ref_point.edge_dist_info.map_pt_2 = lat_pt;
+        float cros_value = std::fabs(pt_cur_dir.x() * lat_cur_dir.y() -
+                                     pt_cur_dir.y() * lat_cur_dir.x());
+        ref_point.edge_dist_info.edge_dist = cros_value;
+        QVector2D cross_dir(-lat_cur_dir.y(), lat_cur_dir.x());
+        if (QVector2D::dotProduct(pt_cur_dir, cross_dir) >= 0) {
+            ref_point.edge_dist_info.edge_dir = cross_dir;
+        } else {
+            ref_point.edge_dist_info.edge_dir = -cross_dir;
+        }
+    }
 }

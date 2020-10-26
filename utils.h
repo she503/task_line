@@ -52,13 +52,19 @@ static QMap<tergeo::task::ReferencePoint::Type, QColor> PointTypeColorMap {
     {tergeo::task::ReferencePoint::Type::TYPE_EDGE_WISE_CURVE, QColor("#B22222")}
 };
 
-struct RefPoint {
-    QPointF pos;
-    tergeo::task::ReferencePoint::Type type;
+struct EdgeDistInfo {
     bool is_edge_wise = false;
     float edge_dist;
     QVector2D edge_dir;
+    QPointF map_pt_1;
+    QPointF map_pt_2;
+};
+
+struct RefPoint {
+    QPointF pos;
+    tergeo::task::ReferencePoint::Type type;
     bool is_selected = false;
+    EdgeDistInfo edge_dist_info;
 };
 
 using RefLine = QList<RefPoint>;

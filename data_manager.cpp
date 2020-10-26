@@ -8,7 +8,7 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
 {
     _map_manager = new MapManager(this);
     _task_manager = new TaskManager(this);
-    _refline_manager = new RefLineManager(this);
+    _refline_manager = new RefLineManager(_map_manager, this);
 }
 
 MapManager *DataManager::getMapManager()
@@ -32,6 +32,7 @@ bool DataManager::copyTaskToRefLine()
         return false;
     }
     _task_manager->toRefLine(_refline_manager->getRefLine());
+    _refline_manager->updateEdgeDistAndEdgeDir();
     _refline_manager->updateRefLine();
     return true;
 }
