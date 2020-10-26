@@ -89,6 +89,7 @@ void RefLineManager::setSelectedPointRect(const QRectF &rect)
 
 void RefLineManager::setSelectedPointsType(const tergeo::task::ReferencePoint::Type& type)
 {
+    bool has_change_edge_wise_point = false;
     QList<QGraphicsItem* > item_list = _points_group->childItems();
     for (int i = 0; i < item_list.size(); ++i) {
         if (i >= _ref_line.size()) {
@@ -102,6 +103,7 @@ void RefLineManager::setSelectedPointsType(const tergeo::task::ReferencePoint::T
                         type == tergeo::task::ReferencePoint::Type::TYPE_EDGE_WISE_CURVE);
             if (_ref_line.at(i).edge_dist_info.is_edge_wise) {
                 _map_manager->calEdgeDistInfo(_ref_line[i]);
+                has_change_edge_wise_point = true;
             }
             has_change = true;
         }
@@ -111,13 +113,16 @@ void RefLineManager::setSelectedPointsType(const tergeo::task::ReferencePoint::T
             point_item->setBrush(PointTypeColorMap[_ref_line.at(i).type]);
         }
     }
+    if (has_change_edge_wise_point) {
+        emit emitEdgeDistChanged();
+    }
     emit emitPointsTypeChanged();
 }
 
 void RefLineManager::updateSelectedPointsPos(const QPointF &changed_pos)
 {
-    QList<QGraphicsItem* > item_list = _points_group->childItems();
     bool has_change_edge_wise_point = false;
+    QList<QGraphicsItem* > item_list = _points_group->childItems();
     for (int i = 0; i < item_list.size(); ++i) {
         if (i >= _ref_line.size()) {
             break;
@@ -137,7 +142,9 @@ void RefLineManager::updateSelectedPointsPos(const QPointF &changed_pos)
         QRectF rect(_ref_line.at(i).pos - pt_corner, _ref_line.at(i).pos + pt_corner);
         point_item->setRect(rect);
     }
-    emit emitEdgeDistChanged();
+    if (has_change_edge_wise_point) {
+        emit emitEdgeDistChanged();
+    }
     this->updatePathItem();
 }
 
