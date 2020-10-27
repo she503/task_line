@@ -48,20 +48,26 @@ private:
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
 
+    void processLeftMousePressEvent(QMouseEvent *event);
+    void processRightMousePressEvent(QMouseEvent *event);
+    void processLeftMouseMoveEvent(QMouseEvent *event);
+    void processRightMouseMoveEvent(QMouseEvent *event);
+    void processLeftMouseReleaseEvent(QMouseEvent *event);
+    void processRightMouseReleaseEvent(QMouseEvent *event);
+
 private:
     DataManager* _data_manager;
     RefLineManager* _refline_manager;
 
     ViewerMode _viewer_mode = MODE_NORMAL;
     Qt::MouseButton _last_pressed_button = Qt::NoButton;
-//    QGraphicsEllipseItem* _pressed_pt_item = nullptr;
-    QPointF _last_mouse_pos;
+
+    QPoint _last_mouse_pos;
     bool _can_move = false;
     bool _has_moved = false;
     int _inserted_index = -1;
 
     QMenu* _draw_menu;
-    QMenu* _edit_menu;
 
     VehicleItem* _vehicle_item;
 };

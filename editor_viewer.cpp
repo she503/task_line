@@ -3,6 +3,7 @@
 #include <QDebug>
 
 #include <QAction>
+#include <QScrollBar>
 #include <QContextMenuEvent>
 
 EditorViewer::EditorViewer(DataManager *data_manager, QWidget *parent) :
@@ -32,10 +33,6 @@ EditorViewer::EditorViewer(DataManager *data_manager, QWidget *parent) :
     _draw_menu = new QMenu(this);
     _draw_menu->addAction(tr("pop"), this, SIGNAL(emitPopRefPoint()));
     _draw_menu->addAction(tr("clear"), this, SIGNAL(emitClearRefPoint()));
-
-    _edit_menu = new QMenu(this);
-    _edit_menu->addAction(tr("select points"), this, SLOT(startRecordSlot()));
-    _edit_menu->addAction(tr("exit select"), this, SLOT(stopRecordSlot()));
 
     connect(this, SIGNAL(emitAppendRefPoint(float,float)),
             _data_manager->getTaskManager(), SLOT(appendRefPoint(float,float)));
@@ -103,6 +100,7 @@ void EditorViewer::setViewerMode(EditorViewer::ViewerMode mode)
     default:
         break;
     }
+    _last_pressed_button = Qt::NoButton;
 }
 
 void EditorViewer::wheelEvent(QWheelEvent *event)
@@ -114,50 +112,110 @@ void EditorViewer::wheelEvent(QWheelEvent *event)
 void EditorViewer::mousePressEvent(QMouseEvent *event)
 {
     _last_pressed_button = event->button();
-    _has_moved = false;
-    _can_move = false;
-    if (event->button() != Qt::LeftButton || _viewer_mode != MODE_EDIT_REFLINE) {
+    _last_mouse_pos = event->pos();
+    if (event->button() == Qt::LeftButton) {
+        this->processLeftMousePressEvent(event);
+    } else if (event->button() == Qt::RightButton) {
+        this->processRightMousePressEvent(event);
+    }/* else {
         QGraphicsView::mousePressEvent(event);
-        return;
-    }
-    _last_mouse_pos = this->mapToScene(event->pos());
-    QList<QGraphicsItem*> items = this->items(event->pos());
-    if (!items.empty()) {
-        for (const auto& item : items) {
-            if (!item->data(IndexRole).isNull()) {
-                _can_move = true;
-                break;
-            }
-        }
-    }
-    QGraphicsView::mousePressEvent(event);
+    }*/
 }
 
 void EditorViewer::mouseMoveEvent(QMouseEvent *event)
 {
-    // TODO middle button drag
-//    if (_last_pressed_button == Qt::MiddleButton) {
-
-//    }
-    if (_last_pressed_button != Qt::LeftButton ||
-            _viewer_mode != MODE_EDIT_REFLINE || !_can_move) {
+    if (_last_pressed_button == Qt::LeftButton) {
+        this->processLeftMouseMoveEvent(event);
+    } else if (_last_pressed_button == Qt::RightButton) {
+        this->processRightMouseMoveEvent(event);
+    } else {
         QGraphicsView::mouseMoveEvent(event);
-        return;
     }
-    QPointF cur_pos = this->mapToScene(event->pos());
-    QPointF move_pos = cur_pos - _last_mouse_pos;
-    _refline_manager->updateSelectedPointsPos(move_pos);
-    _has_moved = true;
-    _last_mouse_pos = cur_pos;
 }
 
 void EditorViewer::mouseReleaseEvent(QMouseEvent *event)
 {
     _last_pressed_button = Qt::NoButton;
-    if (event->button() != Qt::LeftButton) {
+    if (event->button() == Qt::LeftButton) {
+        this->processLeftMouseReleaseEvent(event);
+    } else if (event->button() == Qt::RightButton) {
+        this->processRightMouseReleaseEvent(event);
+    }/* else {
         QGraphicsView::mouseReleaseEvent(event);
-        return;
+    }*/
+}
+
+void EditorViewer::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    _refline_manager->updateSelectedPointIndex(-1);
+    QGraphicsView::mouseDoubleClickEvent(event);
+}
+
+void EditorViewer::contextMenuEvent(QContextMenuEvent *event)
+{
+    if (_viewer_mode == MODE_DRAW_REFLINE) {
+        _draw_menu->exec(QCursor::pos());
+    } else {
+        QGraphicsView::contextMenuEvent(event);
     }
+}
+
+void EditorViewer::processLeftMousePressEvent(QMouseEvent *event)
+{
+    _has_moved = false;
+    _can_move = false;
+    if (_viewer_mode == MODE_EDIT_REFLINE) {
+        QList<QGraphicsItem*> items = this->items(event->pos());
+        if (!items.empty()) {
+            for (const auto& item : items) {
+                if (!item->data(IndexRole).isNull()) {
+                    _can_move = true;
+                    break;
+                }
+            }
+        }
+    }
+    QGraphicsView::mousePressEvent(event);
+    return;
+}
+
+void EditorViewer::processRightMousePressEvent(QMouseEvent *event)
+{
+    if (_viewer_mode == MODE_EDIT_REFLINE) {
+        this->setCursor(QCursor(Qt::ClosedHandCursor));
+    }
+    QGraphicsView::mousePressEvent(event);
+}
+
+void EditorViewer::processLeftMouseMoveEvent(QMouseEvent *event)
+{
+    if (_viewer_mode == MODE_EDIT_REFLINE && _can_move) {
+        QPointF cur_pos = this->mapToScene(event->pos());
+        QPointF move_pos = cur_pos - this->mapToScene(_last_mouse_pos);
+        _refline_manager->updateSelectedPointsPos(move_pos);
+        _has_moved = true;
+        _last_mouse_pos = event->pos();
+    } else {
+        QGraphicsView::mouseMoveEvent(event);
+    }
+}
+
+void EditorViewer::processRightMouseMoveEvent(QMouseEvent *event)
+{
+    if (_viewer_mode == MODE_EDIT_REFLINE) {
+        QScrollBar *hBar = horizontalScrollBar();
+        QScrollBar *vBar = verticalScrollBar();
+        QPoint delta = event->pos() - _last_mouse_pos;
+        hBar->setValue(hBar->value() + (isRightToLeft() ? delta.x() : -delta.x()));
+        vBar->setValue(vBar->value() - delta.y());
+        _last_mouse_pos = event->pos();
+    } else {
+        QGraphicsView::mouseMoveEvent(event);
+    }
+}
+
+void EditorViewer::processLeftMouseReleaseEvent(QMouseEvent *event)
+{
     QPointF pt = this->mapToScene(event->pos());
     if (_viewer_mode == MODE_DRAW_REFLINE) {
         emit emitAppendRefPoint(pt.x(), pt.y());
@@ -181,27 +239,12 @@ void EditorViewer::mouseReleaseEvent(QMouseEvent *event)
     QGraphicsView::mouseReleaseEvent(event);
 }
 
-void EditorViewer::mouseDoubleClickEvent(QMouseEvent *event)
+void EditorViewer::processRightMouseReleaseEvent(QMouseEvent *event)
 {
-    _refline_manager->updateSelectedPointIndex(-1);
-    QGraphicsView::mouseDoubleClickEvent(event);
-}
-
-void EditorViewer::contextMenuEvent(QContextMenuEvent *event)
-{
-    if (_viewer_mode == MODE_DRAW_REFLINE) {
-        _draw_menu->exec(QCursor::pos());
-    } /*else if (_viewer_mode == MODE_EDIT_REFLINE) {
-        QList<QGraphicsItem*> items = this->items(event->pos());
-        if (items.empty()) {
-            QGraphicsView::contextMenuEvent(event);
-            return;
-        }
-        // TODO INSERT POINT
-
-    }*/ else {
-        QGraphicsView::contextMenuEvent(event);
+    if (_viewer_mode == MODE_EDIT_REFLINE) {
+        this->setCursor(QCursor(Qt::ArrowCursor));
     }
+    QGraphicsView::mouseReleaseEvent(event);
 }
 
 void EditorViewer::updateLocalization(const float x, const float y, const float theta)
