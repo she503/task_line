@@ -232,3 +232,4 @@ void TaskControlFrame::updateTaskInfoSlot()
         ui->pushButton_save_task->setVisible(true);
     }
 }
+
